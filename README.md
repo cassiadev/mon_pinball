@@ -24,6 +24,44 @@ flutter test
 flutter build apk --debug
 ```
 
+### Test Suites
+
+Android Studio의 실행 설정에서 `Pinball - All Tests`,
+`Pinball - Controls Tests`, `Pinball - Golden Tests`를 선택하면
+컴퓨터의 Flutter 테스트 러너로 실행됩니다. 게임을 직접 플레이할 때는
+기존 `main.dart` 실행 설정을 사용하세요.
+
+테스트 파일을 기기 대상으로 Run하면 테스트가 실행되는 동안만 화면이
+표시됩니다. 실행이 끝난 뒤에는 플레이 가능한 게임 화면이 남지 않습니다.
+기기에서 조작 테스트를 실행할 수 있지만, 골든 테스트는 화면만 렌더링하고
+이미지 비교를 명시적으로 건너뜁니다. 기준 이미지와의 실제 비교는
+`Pinball - Golden Tests` 또는 `flutter test --tags golden`으로 실행하세요.
+테스트용 폰트는 컴퓨터에서만 로드하므로 기기에는 추가 자산이 필요 없습니다.
+
+```sh
+# Gherkin scenarios only
+flutter test --tags gherkin
+
+# Golden comparisons only
+flutter test --tags golden
+
+# Regenerate golden baselines after an intentional UI change
+flutter test test/golden/pinball_screen_golden_test.dart --update-goldens
+
+# Regenerate Dart widget tests after editing a .feature file
+dart run build_runner build
+```
+
+The golden suite renders the real Flame/Forge2D table at a fixed `390 x 844`
+surface. It covers the initial HUD, a charged launcher, and game-over. A bundled
+test-only Roboto Mono font keeps text deterministic and readable.
+
+The Gherkin source of truth is
+`test/features/pinball_controls.feature`. `bdd_widget_test` generates the
+corresponding Flutter widget test, while reusable step implementations live in
+`test/steps/`. The scenarios exercise the initial HUD, both touch-controlled
+flippers, launcher drag/release, restart, and keyboard nudge.
+
 ## Project Structure
 
 ```text
@@ -32,6 +70,11 @@ lib/
   pinball_game.dart  Flame/Forge2D game, physics bodies, scoring, rendering
 
 test/
+  features/          Gherkin feature and generated Flutter widget test
+  fonts/             Deterministic test-only golden font
+  golden/            Golden tests and committed PNG baselines
+  steps/             Executable Gherkin step definitions
+  support/           Shared game/widget test harness
   widget_test.dart   Smoke test for app/HUD rendering
 ```
 
@@ -346,14 +389,16 @@ This means physics tuning is independent of phone resolution. The Flutter pointe
 - There is no sound yet.
 - There are no image assets. Everything is drawn with Canvas primitives.
 - Table layout is hardcoded in world coordinates.
-- Only a smoke widget test exists. Physics behavior is currently verified manually.
+- Golden and Gherkin suites cover rendering and player controls, but low-level
+  collision scoring and drain timing still rely on the Forge2D runtime.
 
 ## Good Next Refactors
 
 1. Split `pinball_game.dart` into `components/`, `input/`, and `state/` folders once the table grows.
 2. Replace flippers with `RevoluteJoint` + motor limits for more realistic physical response.
 3. Add sound effects through `flame_audio`.
-4. Add deterministic component tests around launcher charge and drain/reset logic.
+4. Add deterministic Forge2D component tests around collision scoring and
+   drain/reset timing.
 5. Extract table coordinates into a data object so levels can be tuned without editing component code.
 
 ## Initial Commit Checklist
