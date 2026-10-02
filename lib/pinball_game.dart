@@ -42,6 +42,14 @@ class MonPinballGame extends Forge2DGame with KeyboardEvents {
 
   final ValueNotifier<PinballSnapshot> hud;
 
+  @visibleForTesting
+  bool get isLeftFlipperPressed =>
+      _leftFlipper.isMounted && _leftFlipper.isPressed;
+
+  @visibleForTesting
+  bool get isRightFlipperPressed =>
+      _rightFlipper.isMounted && _rightFlipper.isPressed;
+
   late final PinballBall _ball;
   late final Flipper _leftFlipper;
   late final Flipper _rightFlipper;

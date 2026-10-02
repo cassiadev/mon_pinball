@@ -1,0 +1,7 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Pinball - All Tests" type="FlutterTestConfigType" factoryName="Flutter Test">
+    <option name="testDir" value="$PROJECT_DIR$/test" />
+    <option name="useRegexp" value="false" />
+    <method v="2" />
+  </configuration>
+</component>

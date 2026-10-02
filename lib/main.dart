@@ -7,8 +7,12 @@ void main() {
   runApp(const MonPinballApp());
 }
 
+typedef PinballGameFactory = MonPinballGame Function();
+
 class MonPinballApp extends StatelessWidget {
-  const MonPinballApp({super.key});
+  const MonPinballApp({super.key, this.gameFactory = MonPinballGame.new});
+
+  final PinballGameFactory gameFactory;
 
   @override
   Widget build(BuildContext context) {
@@ -22,20 +26,22 @@ class MonPinballApp extends StatelessWidget {
         ),
         fontFamily: 'monospace',
       ),
-      home: const PinballScreen(),
+      home: PinballScreen(gameFactory: gameFactory),
     );
   }
 }
 
 class PinballScreen extends StatelessWidget {
-  const PinballScreen({super.key});
+  const PinballScreen({required this.gameFactory, super.key});
+
+  final PinballGameFactory gameFactory;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF050714),
       body: GameWidget<MonPinballGame>.controlled(
-        gameFactory: MonPinballGame.new,
+        gameFactory: gameFactory,
         initialActiveOverlays: const ['hud'],
         overlayBuilderMap: {'hud': (context, game) => PinballHud(game: game)},
       ),
@@ -64,6 +70,7 @@ class _PinballHudState extends State<PinballHud> {
           child: LayoutBuilder(
             builder: (context, constraints) {
               return Listener(
+                key: const ValueKey('pinball-input-surface'),
                 behavior: HitTestBehavior.translucent,
                 onPointerDown: (event) => _activatePointer(
                   event.pointer,
@@ -106,6 +113,7 @@ class _PinballHudState extends State<PinballHud> {
                               const SizedBox(height: 4),
                               Text(
                                 snapshot.score.toString().padLeft(7, '0'),
+                                key: const ValueKey('pinball-score'),
                                 style: const TextStyle(
                                   fontSize: 27,
                                   fontWeight: FontWeight.w900,
@@ -122,11 +130,17 @@ class _PinballHudState extends State<PinballHud> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Text('Lives ${snapshot.lives}'),
+                                Text(
+                                  'Lives ${snapshot.lives}',
+                                  key: const ValueKey('pinball-lives'),
+                                ),
                                 const SizedBox(height: 8),
                                 ClipRRect(
                                   borderRadius: BorderRadius.circular(20),
                                   child: LinearProgressIndicator(
+                                    key: const ValueKey(
+                                      'pinball-launch-charge',
+                                    ),
                                     minHeight: 8,
                                     value: snapshot.launchCharge,
                                     backgroundColor: Colors.white.withValues(
@@ -144,6 +158,7 @@ class _PinballHudState extends State<PinballHud> {
                                 const SizedBox(height: 6),
                                 Text(
                                   snapshot.status,
+                                  key: const ValueKey('pinball-status'),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: TextStyle(
@@ -159,6 +174,7 @@ class _PinballHudState extends State<PinballHud> {
                         const SizedBox(width: 10),
                         _GlassPanel(
                           child: TextButton(
+                            key: const ValueKey('pinball-restart'),
                             onPressed: widget.game.restartGame,
                             child: const Text('R'),
                           ),
@@ -293,6 +309,7 @@ class _ControlsHint extends StatelessWidget {
           gameOver
               ? 'GAME OVER  |  drag right plunger / Space / R to restart'
               : 'Hold left/right screen for flippers  |  drag right plunger down, release to launch  |  W/↑ nudges',
+          key: const ValueKey('pinball-controls-hint'),
           textAlign: TextAlign.center,
           style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
         ),
