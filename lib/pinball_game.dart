@@ -347,6 +347,7 @@ class MonPinballGame extends Forge2DGame with KeyboardEvents {
     if (!_ball.isMounted) {
       return;
     }
+    _ball.body.setType(BodyType.static);
     _ball.body.setTransform(_launchPosition(), 0);
     _ball.body.linearVelocity = Vector2.zero();
     _ball.body.angularVelocity = 0;
@@ -1127,7 +1128,8 @@ class PinballBall extends BodyComponent<MonPinballGame> with ContactCallbacks {
     final shape = CircleShape()..radius = radius;
     final body = world.createBody(
       BodyDef(
-        type: BodyType.dynamic,
+        // Hold the ball at the plunger until the player launches it.
+        type: BodyType.static,
         position: startPosition,
         linearDamping: 0.08,
         angularDamping: 0.18,
@@ -1149,6 +1151,7 @@ class PinballBall extends BodyComponent<MonPinballGame> with ContactCallbacks {
   }
 
   void launch(double power) {
+    body.setType(BodyType.dynamic);
     body.setAwake(true);
     body.linearVelocity = Vector2(0, -35 - 48 * power);
     body.angularVelocity = 18 * power;
