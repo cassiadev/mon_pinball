@@ -37,9 +37,12 @@ Future<void> preparePinballTestEnvironment() async {
   }
 }
 
-Future<void> preparePinballTestSurface(WidgetTester tester) async {
+Future<void> preparePinballTestSurface(
+  WidgetTester tester, {
+  Size size = pinballTestSurfaceSize,
+}) async {
   await preparePinballTestEnvironment();
-  await tester.binding.setSurfaceSize(pinballTestSurfaceSize);
+  await tester.binding.setSurfaceSize(size);
 }
 
 Future<void> loadPinballTestFont() async {
@@ -54,6 +57,16 @@ Future<void> loadPinballTestFont() async {
   final fontLoader = FontLoader('monospace')
     ..addFont(Future.value(ByteData.sublistView(fontBytes)));
   await fontLoader.load();
+  for (final font in const [
+    ('Rajdhani', 'assets/fonts/Rajdhani-SemiBold.ttf'),
+    ('IBMPlexMono', 'assets/fonts/IBMPlexMono-Medium.ttf'),
+    ('sans-serif', 'test/fonts/NanumGothic-Regular.ttf'),
+  ]) {
+    final bytes = await File(font.$2).readAsBytes();
+    await (FontLoader(
+      font.$1,
+    )..addFont(Future.value(ByteData.sublistView(bytes)))).load();
+  }
 }
 
 Future<MonPinballGame> pumpPinballApp(
@@ -68,6 +81,8 @@ Future<MonPinballGame> pumpPinballApp(
   await tester.pump();
   await game.loaded;
 
+  // Mount queued physics bodies before a test freezes the engine.
+  await tester.pump(const Duration(milliseconds: 16));
   if (pauseGame) {
     game.pauseEngine();
   }
