@@ -1,6 +1,11 @@
 # Mon Pinball
 
-Flutter + Flame + Forge2D로 만든 작은 핀볼 게임입니다. Flutter 위젯은 앱 셸과 HUD/입력을 담당하고, Flame/Forge2D는 게임 루프와 물리 월드를 담당합니다.
+[English](README.md) | [한국어](README.ko.md)
+
+A small pinball game built with Flutter, Flame, and Forge2D. Flutter handles
+the app shell, touch input, and the heads-up display (HUD): score, remaining
+balls, status, and launch charge. Flame/Forge2D handle the game loop and
+physics world.
 
 ## Run
 
@@ -16,7 +21,53 @@ flutter run
 - Drag the right plunger lane downward, then release to shoot
 - Keyboard: `A`/left arrow, `D`/right arrow, `Space`/down arrow to launch, `W`/up arrow to nudge, `R` to restart
 
+## Visual Design
+
+The Orbital Cadet design uses a brown lacquer playfield, chrome rails and
+hardware, yellow/red/cyan obstacles, and an amber 5×7 dot score. The product
+name remains Mon Pinball. All table art uses the existing Canvas renderer;
+physics shapes, scoring, and controls are unchanged. The static backdrop is
+recorded once and reused between frames.
+
+Portrait uses a compact title/ball-count row, a centered score strip, and
+a thin status/charge row so the table fills the available width. Flipper
+hints are a single text row. Wide windows and phone landscape layouts
+place the instruments on the right. The game stays mounted
+across layout changes, and touch coordinates remain local to the table.
+On short screens or with large text, the instruments scroll within their
+allocated space so the table stays visible and usable.
+Status text wraps, the score keeps at least seven digits, and larger scores
+scale to fit. Restart has an explicit label.
+
+The previous `_GlassPanel` wrapped the top score, lives/status/charge, and
+restart panels, plus the bottom control hint. Its translucent dark fill,
+rounded corners, faint white border, and shadow gave it a glass-like style;
+it did not blur the background. The current `_InstrumentPanel` uses a solid
+dark fill and a thin border for the wide dashboard. Portrait uses the more
+compact `_CompactDashboard` to leave room for the table.
+
+### Fonts and License Provenance
+
+| Use | Font and upstream source | Included license |
+| --- | --- | --- |
+| Title | [Rajdhani SemiBold](https://github.com/google/fonts/tree/main/ofl/rajdhani) | [Rajdhani-OFL.txt](assets/fonts/Rajdhani-OFL.txt) |
+| Interface text and secondary numbers | [IBM Plex Mono Medium](https://github.com/IBM/plex) | [IBMPlexMono-LICENSE.txt](assets/fonts/IBMPlexMono-LICENSE.txt) |
+| Host-side tests only | [Nanum Gothic](https://github.com/google/fonts/tree/main/ofl/nanumgothic) | [NanumGothic-OFL.txt](test/fonts/NanumGothic-OFL.txt) |
+
+The product fonts and license files were copied unchanged from
+`design/fonts/` into `assets/fonts/`. These are the font authors' notices.
+Condition 2 of the included SIL Open Font License (OFL) 1.1 requires the
+copyright notice and license to accompany redistributed fonts. The product
+licenses are also registered as app assets in `pubspec.yaml`.
+
+Korean uses the system sans-serif fallback. Golden tests load Nanum Gothic
+from `test/fonts/` so Korean remains readable without system fonts; this
+fixture is not included in the app. The ignored `design/` folder is reference
+material and is not required to build or run the game.
+
 ## Checks
+
+Run static analysis, tests, and a debug Android Application Package (APK) build:
 
 ```sh
 flutter analyze
@@ -26,17 +77,16 @@ flutter build apk --debug
 
 ### Test Suites
 
-Android Studio의 실행 설정에서 `Pinball - All Tests`,
-`Pinball - Controls Tests`, `Pinball - Golden Tests`를 선택하면
-컴퓨터의 Flutter 테스트 러너로 실행됩니다. 게임을 직접 플레이할 때는
-기존 `main.dart` 실행 설정을 사용하세요.
+In Android Studio, select `Pinball - All Tests`, `Pinball - Controls Tests`,
+or `Pinball - Golden Tests` to use the host Flutter test runner. Use the
+existing `main.dart` run configuration to play the game.
 
-테스트 파일을 기기 대상으로 Run하면 테스트가 실행되는 동안만 화면이
-표시됩니다. 실행이 끝난 뒤에는 플레이 가능한 게임 화면이 남지 않습니다.
-기기에서 조작 테스트를 실행할 수 있지만, 골든 테스트는 화면만 렌더링하고
-이미지 비교를 명시적으로 건너뜁니다. 기준 이미지와의 실제 비교는
-`Pinball - Golden Tests` 또는 `flutter test --tags golden`으로 실행하세요.
-테스트용 폰트는 컴퓨터에서만 로드하므로 기기에는 추가 자산이 필요 없습니다.
+Running a test file on a device displays the game only while the test runs;
+it does not leave a playable game after completion. Controls tests can run
+on a device. Device golden runs render the scenarios but explicitly skip
+image comparisons. Use `Pinball - Golden Tests` or
+`flutter test --tags golden` on the host for actual baseline comparisons.
+Test fonts load only on the host, so devices need no extra test assets.
 
 ```sh
 # Gherkin scenarios only
@@ -45,16 +95,26 @@ flutter test --tags gherkin
 # Golden comparisons only
 flutter test --tags golden
 
-# Regenerate golden baselines after an intentional UI change
+# Regenerate golden baselines after an intentional interface change
 flutter test test/golden/pinball_screen_golden_test.dart --update-goldens
 
 # Regenerate Dart widget tests after editing a .feature file
 dart run build_runner build
 ```
 
-The golden suite renders the real Flame/Forge2D table at a fixed `390 x 844`
-surface. It covers the initial HUD, a charged launcher, and game-over. A bundled
-test-only Roboto Mono font keeps text deterministic and readable.
+The golden suite renders the real Flame/Forge2D table at `390 x 844` for the
+initial instruments, a charged launcher, and game-over. It also covers a
+`1280 x 800` desktop layout and a `320 x 740` narrow layout with an eight-digit
+score. Bundled fonts keep text deterministic and readable. Widget tests cover
+larger text, compact landscape, responsive state preservation, and launcher
+input after resizing.
+
+Score comparison goldens use the same `390 x 844` screen with eight digits
+(`12,345,678`), nine digits (`123,456,789`), and the 19-digit native integer
+maximum (`9,223,372,036,854,775,807`). The last sample exercises the display
+boundary on Android/native Dart; it does not introduce a gameplay score cap.
+The images are `pinball_score_8_digits.png`, `pinball_score_9_digits.png`, and
+`pinball_score_19_digits.png` in `test/golden/goldens/`.
 
 The Gherkin source of truth is
 `test/features/pinball_controls.feature`. `bdd_widget_test` generates the
@@ -66,26 +126,33 @@ flippers, launcher drag/release, restart, and keyboard nudge.
 
 ```text
 lib/
-  main.dart          Flutter app, GameWidget host, HUD overlay, touch input routing
+  main.dart          Flutter app, responsive instruments, game host, touch input
   pinball_game.dart  Flame/Forge2D game, physics bodies, scoring, rendering
+  pinball_style.dart Shared palette, material paints, accessible dot score
+
+assets/
+  fonts/             Product fonts and their licenses
 
 test/
   features/          Gherkin feature and generated Flutter widget test
-  fonts/             Deterministic test-only golden font
-  golden/            Golden tests and committed PNG baselines
+  fonts/             Host-only font fixtures and their licenses
+  golden/            Golden tests and committed reference images
   steps/             Executable Gherkin step definitions
   support/           Shared game/widget test harness
-  widget_test.dart   Smoke test for app/HUD rendering
+  widget_test.dart   Responsive layout, accessibility, and input regression tests
 ```
 
 ## Architecture
 
-Android 개발자 관점으로 보면 `main.dart`는 Activity/Fragment + overlay UI에 가깝고, `pinball_game.dart`는 custom game view + physics engine에 가깝습니다.
+For Android developers, `main.dart` is comparable to an Activity/Fragment
+with display and input layers, while `pinball_game.dart` is comparable to a
+custom game view with a physics engine.
 
 ```mermaid
 graph TD
   A[MonPinballApp] --> B[PinballScreen]
   B --> C["GameWidget of MonPinballGame"]
+  B --> K[Dashboard instruments]
   C --> D[MonPinballGame]
   C --> E[PinballHud overlay]
   E --> F[Pointer input routing]
@@ -94,7 +161,7 @@ graph TD
   G --> H[BodyComponent objects]
   H --> I[Ball, rails, flippers, bumpers, targets]
   D --> J[ValueNotifier<PinballSnapshot>]
-  J --> E
+  J --> K
 ```
 
 ### Layer Responsibilities
@@ -102,15 +169,30 @@ graph TD
 | Layer | File | Responsibility |
 | --- | --- | --- |
 | App shell | `lib/main.dart` | `MaterialApp`, screen setup, `GameWidget` mounting |
-| HUD overlay | `lib/main.dart` | Score/lives/status/launcher charge UI |
+| Instruments | `lib/main.dart` | Responsive score/lives/status/launcher charge display outside the game viewport |
 | Touch input | `lib/main.dart` | Pointer down/move/up events, launcher drag tracking, flipper press state |
 | Game state | `lib/pinball_game.dart` | Score, lives, launcher charge, game over, HUD snapshots |
 | Physics world | `lib/pinball_game.dart` | Forge2D gravity, bodies, fixtures, collision callbacks |
 | Rendered table | `lib/pinball_game.dart` | Board background, rails, bumpers, slingshots, ball, effects |
 
+### Display and Input Layers
+
+The old `PinballHud` used a `Stack` to place the touch listener and visible
+instruments over the game. The instruments now live outside the game
+viewport: above it in portrait, or in the right sidebar for wide layouts.
+This keeps them from obscuring the playfield.
+
+`PinballHud` now contains only the touch listener. Its `LayoutBuilder`
+already existed inside the old `Stack`; removing the wrapper leaves it at
+the root. It provides the actual game viewport width for left/right touch
+routing, while pointer positions stay local to that viewport. The game
+instance stays mounted when the dashboard moves between layouts.
+
 ## Runtime Flow
 
-Flame이 매 frame마다 `update(dt)`와 `render(canvas)`를 호출합니다. Android의 `Choreographer` + custom `View.onDraw()`를 game framework가 대신 관리한다고 보면 됩니다.
+Flame calls `update(dt)` and `render(canvas)` every frame. The game framework
+manages scheduling and drawing, similar to Android's `Choreographer` and a
+custom `View.onDraw()`.
 
 ```mermaid
 sequenceDiagram
@@ -118,10 +200,10 @@ sequenceDiagram
   participant GameWidget as Flame GameWidget
   participant Game as MonPinballGame
   participant World as Forge2DWorld
-  participant HUD as PinballHud
+  participant HUD as Dashboard instruments
 
   Flutter->>GameWidget: build()
-  GameWidget->>Game: create MonPinballGame
+  Flutter->>Game: create MonPinballGame once in PinballScreen
   GameWidget->>Game: onLoad()
   Game->>World: add rails, bumpers, flippers, ball
   Game->>HUD: publish PinballSnapshot
@@ -166,15 +248,19 @@ Important methods:
 
 ### `PinballHud`
 
-`PinballHud` is a Flutter overlay on top of the Flame canvas. It uses `ValueListenableBuilder` to redraw when `MonPinballGame.hud` changes.
+`PinballHud` is a transparent Flutter input overlay on top of the Flame canvas.
+The separate dashboard uses `ValueListenableBuilder` to redraw instruments when
+`MonPinballGame.hud` changes, without covering the playfield.
 
-It also routes touch input:
+`PinballHud` routes touch input:
 
 - Left half: left flipper
 - Right half outside plunger lane: right flipper
 - Right plunger lane: drag launcher
 
-The important design choice is that pointer input is handled in Flutter overlay code, but game intent is delegated into `MonPinballGame`. This keeps UI concerns out of the physics classes.
+Pointer input is handled in Flutter overlay code, while game actions are
+delegated to `MonPinballGame`. This keeps interface concerns out of the
+physics classes.
 
 ### Physics Components
 
@@ -309,7 +395,7 @@ sequenceDiagram
   participant World as Forge2DWorld
   participant Object as Bumper/Target/Spinner/Slingshot
   participant Game as MonPinballGame
-  participant HUD as PinballHud
+  participant HUD as Dashboard instruments
 
   World->>Object: beginContact(other, contact)
   Object->>Object: verify other is PinballBall
@@ -323,7 +409,7 @@ Scoring safeguards:
 
 - Bumpers, spinners, and targets use short cooldowns to prevent score spam from a single contact cluster.
 - `gameOver` prevents new score updates.
-- Hit effects are separate `PulseRing` components so scoring does not depend on UI overlay rendering.
+- Hit effects are separate `PulseRing` components so scoring does not depend on display overlay rendering.
 
 ## Flipper Algorithm
 
@@ -352,7 +438,7 @@ Tradeoff:
 sequenceDiagram
   participant Game as MonPinballGame
   participant Ball as PinballBall
-  participant HUD as PinballHud
+  participant HUD as Dashboard instruments
 
   Game->>Game: update(dt)
   Game->>Ball: check ball.position.y
