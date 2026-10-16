@@ -121,6 +121,10 @@ Gherkin 시나리오의 원본은 `test/features/pinball_controls.feature`입니
 구현은 `test/steps/`에 있습니다. 시나리오는 초기 계기판, 양쪽 플리퍼의 터치
 조작, 발사대 끌기·놓기, 다시 시작, 키보드 흔들기를 검증합니다.
 
+`test/pinball_physics_test.dart`는 실제 Forge2D 물리 시간을 진행시켜 발사 전
+대기, 충전, 공 소실, 다시 시작, 최소 발사력으로 레인 출구 통과, 비행 중 발사대
+연타가 공에 영향을 주지 않는 동작을 검증합니다.
+
 ## 프로젝트 구조
 
 ```text
@@ -240,7 +244,7 @@ sequenceDiagram
 | `update(dt)` | 프레임별 발사 충전 갱신 및 공 이탈 감지 |
 | `isLauncherTouch()` | 화면 좌표를 월드 좌표로 변환해 발사대 영역인지 확인 |
 | `launcherChargeFromDrag()` | 아래로 끈 거리를 `0.0..1.0` 충전량으로 변환 |
-| `releaseLauncher()` | 공에 발사 속도 적용 |
+| `releaseLauncher()` | 발사대에서 대기 중인 공에만 발사 속도 적용 |
 | `addScore()` | 점수 갱신 및 파동 효과 생성 |
 | `restartGame()` | 점수·남은 공·공·발사대 상태 초기화 |
 
@@ -336,10 +340,13 @@ sequenceDiagram
 
 모바일 발사대는 누른 시간 대신 끈 거리를 사용합니다. 실제 스프링을 당기는
 느낌에 가깝게 조작하도록 한 선택입니다.
+머리 부분이 고정된 받침대 쪽으로 내려가면서 용수철이 압축됩니다. 충전과
+발사는 대기 중인 공에만 적용되며, 비행 중에는 발사대를 조작해도 충전·재발사·
+추가 추진이 발생하지 않습니다.
 
 ```text
 onPointerDown(position):
-  if position is inside launcher lane:
+  if position is inside launcher lane and ball is waiting:
     remember drag start position
     set charge to 0
     mark action as launcher
@@ -349,7 +356,7 @@ onPointerDown(position):
     press right flipper
 
 onPointerMove(position):
-  if current action is launcher:
+  if current action is launcher and ball is waiting:
     startWorld = screenToWorld(dragStart)
     currentWorld = screenToWorld(position)
     charge = clamp((currentWorld.y - startWorld.y) / 6.2, 0, 1)
@@ -357,9 +364,9 @@ onPointerMove(position):
     update LauncherView.charge
 
 onPointerUp:
-  if current action is launcher:
+  if current action is launcher and ball is waiting:
     power = max(charge, 0.2)
-    ball.velocity = Vector2(0, -35 - 48 * power)
+    ball.velocity = Vector2(0, -55 - 48 * power)
     reset charge to 0
 ```
 
@@ -374,6 +381,8 @@ onPointerUp:
 발사 레인은 게임판 오른쪽에 있습니다. 공은 레인 아래쪽에서 시작해 발사 시
 위로 이동합니다. 레인 위쪽은 넓게 만들었으며, `LaunchLaneExit` 센서가 공을
 왼쪽 게임판으로 밀어줍니다.
+공은 처음 시작하거나 공을 잃거나 다시 시작한 뒤 발사 전까지 고정됩니다.
+최소 발사력으로도 연타 없이 상단 출구에 도달하도록 발사 속도를 정했습니다.
 
 ```mermaid
 graph TD
@@ -382,13 +391,13 @@ graph TD
   C --> D[PinballBall.launch]
   D --> E[Ball moves upward in right lane]
   E --> F[LaunchLaneExit sensor near top]
-  F --> G[Set velocity to left/up]
+  F --> G[Steer left and preserve upward speed]
   G --> H[Ball enters playfield]
 ```
 
 센서의 충돌 도형은 `isSensor: true`이므로 공을 물리적으로 막지 않습니다.
-접촉을 감지하면 공의 속도를 한 번 바꾸고, 짧은 재작동 대기 시간으로 반복
-충격을 방지합니다.
+상승 중인 공의 위쪽 속도는 유지하면서 왼쪽으로 방향을 바꿔 안쪽 레일을
+넘어가게 합니다. 짧은 재작동 대기 시간으로 반복 방향 전환을 방지합니다.
 
 ## 충돌과 점수 계산
 
@@ -485,15 +494,15 @@ y는 아래쪽으로 증가
 - 아직 소리가 없습니다.
 - 이미지 자산 없이 모든 그림을 Canvas 기본 도형으로 그립니다.
 - 게임판 배치는 월드 좌표로 코드에 직접 지정되어 있습니다.
-- 골든·Gherkin 테스트는 화면과 플레이어 조작을 검증하지만, 세부 충돌 점수와
-  공 이탈 시점은 아직 Forge2D 런타임에 의존합니다.
+- 물리 회귀 테스트는 발사와 공 이탈 상태를 검증하며, 세부 충돌 점수는 아직
+  테스트로 다루지 않습니다.
 
 ## 향후 개선 후보
 
 1. 게임판이 커지면 `pinball_game.dart`를 `components/`, `input/`, `state/`로 분리
 2. 더 사실적인 물리 반응을 위해 플리퍼에 `RevoluteJoint`와 모터 제한 적용
 3. `flame_audio`로 소리 효과 추가
-4. 충돌 점수와 공 이탈·초기화 시점을 검증하는 재현 가능한 Forge2D 컴포넌트 테스트 추가
+4. 재현 가능한 Forge2D 물리 테스트를 충돌 점수 검증으로 확장
 5. 컴포넌트 코드를 수정하지 않고 레벨을 조정할 수 있도록 게임판 좌표를 데이터로 분리
 
 ## 최초 커밋 체크리스트

@@ -122,6 +122,10 @@ corresponding Flutter widget test, while reusable step implementations live in
 `test/steps/`. The scenarios exercise the initial HUD, both touch-controlled
 flippers, launcher drag/release, restart, and keyboard nudge.
 
+`test/pinball_physics_test.dart` advances the real Forge2D simulation to check
+idle waiting, charging, drains, restarts, minimum-power lane exit, and repeated
+launcher input while the ball is airborne.
+
 ## Project Structure
 
 ```text
@@ -242,7 +246,7 @@ Important methods:
 | `update(dt)` | Per-frame launcher charge and drain detection |
 | `isLauncherTouch()` | Converts screen coordinate to world coordinate and checks plunger zone |
 | `launcherChargeFromDrag()` | Converts downward drag distance into charge `0.0..1.0` |
-| `releaseLauncher()` | Applies launch velocity to the ball |
+| `releaseLauncher()` | Launches only the ball waiting at the plunger |
 | `addScore()` | Updates score and spawns a pulse effect |
 | `restartGame()` | Resets score/lives/ball/launcher state |
 
@@ -336,10 +340,13 @@ sequenceDiagram
 ## Launcher Algorithm
 
 Mobile launcher behavior intentionally uses drag distance instead of tap duration. This makes the control feel like pulling an actual spring.
+The head moves downward toward a fixed base, compressing the visible coils.
+Charging and release only affect a ball waiting at the plunger; once it is
+airborne, launcher input cannot charge, relaunch, or nudge it.
 
 ```text
 onPointerDown(position):
-  if position is inside launcher lane:
+  if position is inside launcher lane and ball is waiting:
     remember drag start position
     set charge to 0
     mark action as launcher
@@ -349,7 +356,7 @@ onPointerDown(position):
     press right flipper
 
 onPointerMove(position):
-  if current action is launcher:
+  if current action is launcher and ball is waiting:
     startWorld = screenToWorld(dragStart)
     currentWorld = screenToWorld(position)
     charge = clamp((currentWorld.y - startWorld.y) / 6.2, 0, 1)
@@ -357,9 +364,9 @@ onPointerMove(position):
     update LauncherView.charge
 
 onPointerUp:
-  if current action is launcher:
+  if current action is launcher and ball is waiting:
     power = max(charge, 0.2)
-    ball.velocity = Vector2(0, -35 - 48 * power)
+    ball.velocity = Vector2(0, -55 - 48 * power)
     reset charge to 0
 ```
 
@@ -372,6 +379,8 @@ Why `currentWorld.y - startWorld.y`:
 ## Ball Launch And Lane Exit
 
 The launcher lane is on the right side. The ball starts near the bottom of that lane. When launched, it travels upward. The top lane is intentionally widened, and `LaunchLaneExit` acts as a sensor to push the ball left into the playfield.
+The ball stays static until launch, including after a drain or restart. The
+minimum launch speed is sufficient to reach the top exit without repeated taps.
 
 ```mermaid
 graph TD
@@ -380,11 +389,13 @@ graph TD
   C --> D[PinballBall.launch]
   D --> E[Ball moves upward in right lane]
   E --> F[LaunchLaneExit sensor near top]
-  F --> G[Set velocity to left/up]
+  F --> G[Steer left and preserve upward speed]
   G --> H[Ball enters playfield]
 ```
 
-The sensor does not physically block the ball because its fixture is `isSensor: true`. It detects contact and rewrites the ball velocity once, with a cooldown to avoid repeated impulses.
+The sensor does not physically block the ball because its fixture is `isSensor: true`.
+It redirects rising balls to the left while preserving their upward speed so
+they clear the inner rail. A cooldown avoids repeated redirects.
 
 ## Collision And Scoring
 
@@ -475,16 +486,15 @@ This means physics tuning is independent of phone resolution. The Flutter pointe
 - There is no sound yet.
 - There are no image assets. Everything is drawn with Canvas primitives.
 - Table layout is hardcoded in world coordinates.
-- Golden and Gherkin suites cover rendering and player controls, but low-level
-  collision scoring and drain timing still rely on the Forge2D runtime.
+- Physics regression tests cover launch and drain state; detailed collision
+  scoring is not yet covered.
 
 ## Good Next Refactors
 
 1. Split `pinball_game.dart` into `components/`, `input/`, and `state/` folders once the table grows.
 2. Replace flippers with `RevoluteJoint` + motor limits for more realistic physical response.
 3. Add sound effects through `flame_audio`.
-4. Add deterministic Forge2D component tests around collision scoring and
-   drain/reset timing.
+4. Extend the deterministic Forge2D tests to collision scoring.
 5. Extract table coordinates into a data object so levels can be tuned without editing component code.
 
 ## Initial Commit Checklist

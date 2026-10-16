@@ -189,12 +189,18 @@ class MonPinballGame extends Forge2DGame with KeyboardEvents {
     return ((currentWorld.y - startWorld.y) / 6.2).clamp(0.0, 1.0);
   }
 
+  bool get _canLaunchBall =>
+      _ball.isMounted && _ball.body.bodyType == BodyType.static;
+
   void startLauncherCharge({bool timed = true}) {
     if (_gameOver) {
       restartGame();
       if (!timed) {
         return;
       }
+    }
+    if (!_canLaunchBall) {
+      return;
     }
     _isChargingLauncher = timed;
     _status = 'Charging launcher';
@@ -204,6 +210,9 @@ class MonPinballGame extends Forge2DGame with KeyboardEvents {
   void setLauncherDragCharge(double charge) {
     if (_gameOver) {
       restartGame();
+    }
+    if (!_canLaunchBall) {
+      return;
     }
     _isChargingLauncher = false;
     _launchCharge = charge.clamp(0.0, 1.0);
@@ -217,19 +226,17 @@ class MonPinballGame extends Forge2DGame with KeyboardEvents {
       restartGame();
       return;
     }
+    if (!_canLaunchBall) {
+      return;
+    }
 
     final power = math.max(_launchCharge, 0.2);
     _isChargingLauncher = false;
     _launchCharge = 0;
     _launcherView.charge = 0;
 
-    if (_ball.isMounted && _ball.position.x > 22) {
-      _ball.launch(power);
-      _status = 'Launched';
-    } else if (_ball.isMounted) {
-      _ball.body.applyLinearImpulse(Vector2(0, -7));
-      _status = 'Nudged upward';
-    }
+    _ball.launch(power);
+    _status = 'Launched';
     _emitHud();
   }
 
@@ -614,12 +621,16 @@ class LaunchLaneExit extends BodyComponent<MonPinballGame>
 
   @override
   void beginContact(Object other, Contact contact) {
-    if (other is! PinballBall || _cooldown > 0 || other.position.x < 22.0) {
+    if (other is! PinballBall ||
+        _cooldown > 0 ||
+        other.position.x < 22.0 ||
+        other.body.linearVelocity.y >= 0) {
       return;
     }
 
     _cooldown = 0.7;
-    other.body.linearVelocity = Vector2(-30, -8);
+    // Keep the upward launch speed to clear the tip of the inner rail.
+    other.body.linearVelocity = Vector2(-30, other.body.linearVelocity.y);
     other.body.angularVelocity = -18;
   }
 
@@ -1153,7 +1164,7 @@ class PinballBall extends BodyComponent<MonPinballGame> with ContactCallbacks {
   void launch(double power) {
     body.setType(BodyType.dynamic);
     body.setAwake(true);
-    body.linearVelocity = Vector2(0, -35 - 48 * power);
+    body.linearVelocity = Vector2(0, -55 - 48 * power);
     body.angularVelocity = 18 * power;
   }
 
@@ -1212,7 +1223,7 @@ class LauncherView extends Component {
 
   @override
   void render(Canvas canvas) {
-    const bounds = Rect.fromLTWH(24.15, 37, 1.7, 8.4);
+    const bounds = Rect.fromLTWH(24.15, 37, 1.7, 9.7);
     final track = RRect.fromRectAndRadius(bounds, const Radius.circular(0.65));
     canvas.drawRRect(track, Paint()..color = const Color(0xFF070C19));
     canvas.drawRRect(
@@ -1222,30 +1233,39 @@ class LauncherView extends Component {
         ..style = PaintingStyle.stroke
         ..strokeWidth = 0.07,
     );
-    for (var y = 42.0; y < 45; y += 0.34) {
-      canvas.drawPath(
-        Path()
-          ..moveTo(24.65, y)
-          ..lineTo(25.35, y + 0.17)
-          ..lineTo(24.65, y + 0.34),
-        Paint()
-          ..color = const Color(0xFFA3B3C9)
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 0.07,
-      );
-    }
-    final plungerTop = 44.5 - charge * 5.8;
+    final plungerTop = 43.85 + charge * 1.5;
+    final springTop = plungerTop + 0.22;
+    const springBottom = 46.2;
     canvas.drawLine(
-      const Offset(25, 45.4),
-      Offset(25, plungerTop),
-      PinballStyle.metal(bounds)..strokeWidth = 0.55,
+      Offset(25, springTop),
+      const Offset(25, springBottom),
+      PinballStyle.metal(bounds)..strokeWidth = 0.14,
     );
-    canvas.drawCircle(
-      Offset(25, plungerTop),
-      0.52,
-      PinballStyle.metal(
-        Rect.fromCircle(center: Offset(25, plungerTop), radius: 0.52),
-      ),
+    const turns = 7;
+    final coilHeight = (springBottom - springTop) / turns;
+    final spring = Path()..moveTo(25, springTop);
+    for (var turn = 0; turn < turns; turn++) {
+      spring
+        ..lineTo(24.55, springTop + (turn + 0.25) * coilHeight)
+        ..lineTo(25.45, springTop + (turn + 0.75) * coilHeight);
+    }
+    spring.lineTo(25, springBottom);
+    canvas.drawPath(
+      spring,
+      Paint()
+        ..color = const Color(0xFFA3B3C9)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 0.07,
+    );
+    final cap = Rect.fromLTWH(24.35, plungerTop - 0.22, 1.3, 0.44);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(cap, const Radius.circular(0.12)),
+      PinballStyle.metal(cap),
+    );
+    const base = Rect.fromLTWH(24.35, springBottom, 1.3, 0.3);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(base, const Radius.circular(0.1)),
+      PinballStyle.metal(base),
     );
     canvas.drawLine(
       const Offset(24.4, 44),

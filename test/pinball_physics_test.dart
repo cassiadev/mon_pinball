@@ -95,6 +95,66 @@ void main() {
     game.stepEngine();
     expect(ball.position.y, lessThan(43));
   });
+
+  for (final (label, charge) in const [('minimum', 0.0), ('full', 1.0)]) {
+    testWidgets('$label launch power carries the ball into the playfield', (
+      tester,
+    ) async {
+      final game = await pumpPinballApp(tester, pauseGame: true);
+      addTearDown(() => disposePinballScenario(tester));
+      final ball = game.world.children.whereType<PinballBall>().single;
+
+      game.startLauncherCharge(timed: false);
+      game.setLauncherDragCharge(charge);
+      game.releaseLauncher();
+      var enteredPlayfield = false;
+      for (var frame = 0; frame < 120; frame++) {
+        game.stepEngine();
+        if (ball.position.x < 18 && ball.position.y < 12) {
+          enteredPlayfield = true;
+          break;
+        }
+      }
+
+      expect(
+        enteredPlayfield,
+        isTrue,
+        reason:
+            'Ball must clear the inner rail, not just reach the exit sensor.',
+      );
+      expect(game.hud.value.lives, 3);
+    });
+  }
+
+  for (final ballX in [25.0, 14.0]) {
+    testWidgets('launcher cannot boost an airborne ball at x=$ballX', (
+      tester,
+    ) async {
+      final game = await pumpPinballApp(tester, pauseGame: true);
+      addTearDown(() => disposePinballScenario(tester));
+      final ball = game.world.children.whereType<PinballBall>().single;
+      game.releaseLauncher();
+      ball.body.setTransform(Vector2(ballX, 34), 0);
+
+      game.startLauncherCharge();
+      game.stepEngine();
+      expect(game.hud.value.launchCharge, 0);
+
+      ball.body.linearVelocity = Vector2(4, 6);
+      ball.body.angularVelocity = 2;
+      for (var tap = 0; tap < 5; tap++) {
+        final gesture = await tester.startGesture(plungerPosition(tester));
+        await gesture.moveBy(const Offset(0, 80));
+        await gesture.up();
+      }
+
+      expect(ball.body.linearVelocity.x, 4);
+      expect(ball.body.linearVelocity.y, 6);
+      expect(ball.body.angularVelocity, 2);
+      expect(game.hud.value.launchCharge, 0);
+      expect(game.hud.value.status, 'Launched');
+    });
+  }
 }
 
 void _advancePhysics(MonPinballGame game, double seconds) {
