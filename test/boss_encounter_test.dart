@@ -106,8 +106,15 @@ void main() {
     expect(boss.defeated, isTrue);
     expect(boss.active, isFalse);
     expect(boss.petals, isEmpty);
+    expect(boss.defeatProgress, 0);
+    expect(boss.vanished, isFalse);
+    final defeatedAt = boss.position;
+    boss.update(BossEncounter.defeatDuration / 2);
+    expect(boss.defeatProgress, closeTo(0.5, 1e-9));
+    expect(boss.position, defeatedAt);
     boss.start();
     boss.update(30);
+    expect(boss.vanished, isTrue);
     expect(boss.motion, BossMotion.defeated);
     expect(boss.petals, isEmpty);
     expect(boss.active, isFalse);
@@ -117,6 +124,7 @@ void main() {
     expect(boss.defeated, isFalse);
     expect(boss.active, isFalse);
     expect(boss.elapsed, 0);
+    expect(boss.vanished, isFalse);
     expect(boss.position.x, 14);
     expect(boss.position.y, closeTo(8.6, 1e-6));
     expect(boss.motion, BossMotion.idle);

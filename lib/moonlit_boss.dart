@@ -96,23 +96,25 @@ class MoonlitBoss extends Component {
   @override
   void render(Canvas canvas) {
     final atlas = _atlas;
-    if (atlas == null) return;
+    if (atlas == null || encounter.vanished) return;
 
     final time = encounter.poseTime;
     final breath = math.sin(time * 2.1);
     final drift = math.cos(time * 0.55);
     final opening = math.sin(encounter.attackProgress * math.pi);
     final hurt = encounter.hurtProgress;
-    final fade = encounter.defeated ? 0.36 : 1.0;
+    // Defeat: a brooch flash, then the figure rises, swells and fades out.
+    final exit = encounter.defeatProgress;
+    final fade = encounter.defeated ? math.pow(1 - exit, 1.6).toDouble() : 1.0;
     final center = encounter.position;
 
     canvas.save();
     canvas.clipRRect(MoonlitTable.playfield);
-    canvas.translate(center.x, center.y);
+    canvas.translate(center.x, center.y - exit * exit * 2.2);
     // All body motion pivots on the atlas brooch, never on a bounding-box center.
     canvas.rotate(drift * 0.03 + hurt * 0.1);
     final recoil = 1 - hurt * 0.05;
-    final defeatScale = encounter.defeated ? 0.94 : 1.0;
+    final defeatScale = 1 + exit * 0.12;
     final size = (1 + breath * 0.012) * recoil * defeatScale;
     canvas.scale(size, size);
 
@@ -131,7 +133,37 @@ class MoonlitBoss extends Component {
     final sleeve = math.sin(time * 2.1 - 0.4) * 0.04 + opening * 0.26;
     _part(canvas, atlas, _leftSleeve, sleeve - hurt * 0.14, fade);
     _part(canvas, atlas, _rightSleeve, -sleeve + hurt * 0.14, fade);
+    if (encounter.defeated) _renderDefeatFlash(canvas, exit);
     canvas.restore();
+  }
+
+  void _renderDefeatFlash(Canvas canvas, double exit) {
+    final glow = 1 - exit;
+    canvas.drawCircle(
+      Offset.zero,
+      1.2 + exit * 7,
+      Paint()
+        ..shader = Gradient.radial(
+          Offset.zero,
+          1.2 + exit * 7,
+          [
+            Color.fromRGBO(255, 248, 220, glow * 0.95),
+            Color.fromRGBO(240, 196, 120, glow * 0.45),
+            const Color(0x00F0C478),
+          ],
+          const [0, 0.4, 1],
+        ),
+    );
+    final spark = Paint()..color = Color.fromRGBO(255, 236, 190, glow);
+    for (var i = 0; i < 16; i++) {
+      final angle = i * math.pi / 8 + exit;
+      final distance = 1.5 + exit * (8 + (i % 3) * 1.5);
+      canvas.drawCircle(
+        Offset(math.cos(angle), math.sin(angle)) * distance,
+        0.16 * glow + 0.04,
+        spark,
+      );
+    }
   }
 
   void _part(

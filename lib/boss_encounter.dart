@@ -21,12 +21,16 @@ class BossEncounter {
   static const _petalLifetime = 6.0;
   static const _hurtDuration = 0.45;
 
+  /// Length of the defeat flash and fade before the figure leaves the board.
+  static const defeatDuration = 1.4;
+
   int _health = 16000;
   bool _active = false;
   double _elapsed = 0;
   double _activeElapsed = 0;
   double _activeOriginElapsed = 0;
   double _hurtUntil = 0;
+  double _defeatedAt = 0;
   bool _overlapping = false;
   Vector2 _position = Vector2(14, 8.6);
   Vector2 _previousPosition = Vector2(14, 8.6);
@@ -42,6 +46,14 @@ class BossEncounter {
   double get elapsed => _elapsed;
   double get poseTime => _elapsed;
   List<BossPetal> get petals => _petals;
+
+  /// Zero until defeat, then 0..1 across the exit; the figure is gone at one.
+  double get defeatProgress => defeated
+      ? ((_elapsed - _defeatedAt) / defeatDuration).clamp(0.0, 1.0)
+      : 0;
+
+  /// Whether the defeated figure has finished leaving and draws nothing.
+  bool get vanished => defeatProgress >= 1;
 
   /// Zero outside an attack; 0..1 across anticipation, burst and recovery.
   double get attackProgress {
@@ -94,7 +106,8 @@ class BossEncounter {
     if (!dt.isFinite || dt <= 0) return;
     _previousPosition = _position.clone();
     _elapsed += dt;
-    _position = _positionAt(_elapsed);
+    // A defeated figure holds its place while it dissolves.
+    if (!defeated) _position = _positionAt(_elapsed);
     if (!active) return;
     _activeElapsed += dt;
     _updatePetals();
@@ -127,7 +140,10 @@ class BossEncounter {
     final damage = math.min(hitDamage, _health);
     _health -= damage;
     _hurtUntil = _elapsed + _hurtDuration;
-    if (defeated) pause();
+    if (defeated) {
+      _defeatedAt = _elapsed;
+      pause();
+    }
     return damage;
   }
 

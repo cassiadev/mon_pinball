@@ -196,9 +196,13 @@ void main() {
         const Color(0xFFFFFFFF),
         'late contact',
       );
+      expect(boss.vanished, isFalse);
       for (var frame = 0; frame < 120; frame++) {
         game.stepEngine();
       }
+      // The exit has finished: the boss no longer draws or attacks.
+      expect(boss.vanished, isTrue);
+      expect(boss.petals, isEmpty);
       expect(game.hud.value.score, 16000);
       expect(game.hud.value.lives, 3);
       expect(game.hud.value.status, contains('승리'));
@@ -208,6 +212,7 @@ void main() {
       );
       game.startLauncherCharge(timed: false);
       expect(boss.defeated, isFalse);
+      expect(boss.vanished, isFalse);
       expect(boss.health, 16000);
       expect(game.hud.value.score, 0);
       game.releaseLauncher();

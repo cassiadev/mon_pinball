@@ -1,6 +1,7 @@
 import 'package:flame_forge2d/flame_forge2d.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mon_pinball/boss_encounter.dart';
 import 'package:mon_pinball/main.dart';
 import 'package:mon_pinball/pinball_game.dart';
 
@@ -67,6 +68,9 @@ void main() {
           }
           expect(game.hud.value.bossDefeated, isTrue);
           expect(game.hud.value.lives, 3);
+          // Let the exit flash, fade and popups finish: the board is empty.
+          game.stepEngine(stepTime: BossEncounter.defeatDuration + 0.1);
+          expect(game.boss.vanished, isTrue);
         },
       );
       await _expectGolden(

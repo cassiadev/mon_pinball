@@ -152,7 +152,7 @@ void main() {
   );
 
   test(
-    'defeat fades the remaining figure instead of hiding it abruptly',
+    'defeat flashes, fades the figure out, then draws nothing until reset',
     () async {
       final encounter = BossEncounter()..start();
       final boss = MoonlitBoss(encounter);
@@ -163,13 +163,28 @@ void main() {
         encounter.checkHit(center - Vector2(8, 0), center);
         encounter.checkHit(center, center + Vector2(8, 0));
       }
-      final after = await _render(boss, encounter);
-      expect(_opaquePixels(before, 280, 280, 320, 320), greaterThan(500));
-      expect(_opaquePixels(after, 280, 280, 320, 320), 0);
+      expect(encounter.defeated, isTrue);
+      // The exit starts from the full figure plus the brooch flash.
+      final flash = await _render(boss, encounter);
       expect(
-        _count(after, 280, 280, 320, 320, (i) => after[i + 3] > 30),
-        greaterThan(500),
+        _count(flash, 0, 0, 600, 600, (i) => flash[i + 3] > 30),
+        greaterThan(
+          _count(before, 0, 0, 600, 600, (i) => before[i + 3] > 30) ~/ 2,
+        ),
       );
+      encounter.update(BossEncounter.defeatDuration * 0.6);
+      final fading = await _render(boss, encounter);
+      expect(
+        _opaquePixels(fading, 0, 0, 600, 600),
+        lessThan(_opaquePixels(before, 0, 0, 600, 600) ~/ 3),
+      );
+      encounter.update(BossEncounter.defeatDuration);
+      final gone = await _render(boss, encounter);
+      expect(_count(gone, 0, 0, 600, 600, (i) => gone[i + 3] > 0), 0);
+
+      encounter.reset();
+      final restored = await _render(boss, encounter);
+      expect(_opaquePixels(restored, 280, 280, 320, 320), greaterThan(500));
     },
   );
 }
