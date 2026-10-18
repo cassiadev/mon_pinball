@@ -22,8 +22,56 @@ class MoonlitTable extends Component {
 
   final ui.Image garden;
 
+  /// The static art, pre-rendered at screen resolution. Redrawing the garden
+  /// plate, shading, guides and frame from scratch every frame cost several
+  /// milliseconds of GPU time per frame on a 120 Hz phone.
+  ui.Image? _baked;
+  double _bakedScale = 0;
+  static final _bakedBounds = board.inflate(0.3);
+  final _blit = Paint()..filterQuality = FilterQuality.low;
+
   @override
   void render(Canvas canvas) {
+    final view = WidgetsBinding.instance.platformDispatcher.implicitView;
+    // Device pixels per board unit at the current camera zoom.
+    final scale = canvas.getTransform()[0] * (view?.devicePixelRatio ?? 1);
+    if (_baked == null || (scale - _bakedScale).abs() > 0.5) {
+      _baked?.dispose();
+      _baked = _bake(scale);
+      _bakedScale = scale;
+    }
+    final image = _baked!;
+    canvas.drawImageRect(
+      image,
+      Rect.fromLTWH(0, 0, image.width.toDouble(), image.height.toDouble()),
+      _bakedBounds,
+      _blit,
+    );
+  }
+
+  @override
+  void onRemove() {
+    _baked?.dispose();
+    _baked = null;
+    super.onRemove();
+  }
+
+  ui.Image _bake(double scale) {
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder)
+      ..scale(scale)
+      ..translate(-_bakedBounds.left, -_bakedBounds.top);
+    _paintStatic(canvas);
+    final picture = recorder.endRecording();
+    final image = picture.toImageSync(
+      (_bakedBounds.width * scale).ceil(),
+      (_bakedBounds.height * scale).ceil(),
+    );
+    picture.dispose();
+    return image;
+  }
+
+  void _paintStatic(Canvas canvas) {
     canvas.save();
     canvas.clipRRect(playfield);
     // Cover the portrait board, keeping the garden's centre line on x = 14.

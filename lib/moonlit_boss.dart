@@ -86,7 +86,7 @@ class MoonlitBoss extends Component {
 
   final BossEncounter encounter;
   Image? _atlas;
-  final _paint = Paint()..filterQuality = FilterQuality.high;
+  final _paint = Paint()..filterQuality = FilterQuality.medium;
 
   @override
   Future<void> onLoad() async {
@@ -205,6 +205,24 @@ class BossPetals extends Component {
     ..cubicTo(-0.38, 0.32, 0.15, 0.34, 0.55, 0)
     ..close();
 
+  // Shaders are built once; per-petal fading only changes the paint alpha.
+  // A gradient halo replaces a blur, which costs an offscreen pass per petal.
+  static final _halo = Paint()
+    ..shader = Gradient.radial(Offset.zero, 0.8, const [
+      Color(0x99C45CFF),
+      Color(0x00C45CFF),
+    ]);
+  static final _body = Paint()
+    ..shader = Gradient.radial(
+      const Offset(0.12, 0),
+      0.6,
+      const [Color(0xFFFFF4FF), Color(0xFFE28CFF), Color(0xFF9640D6)],
+      const [0, 0.45, 1],
+    );
+  static final _trail = Paint()
+    ..strokeWidth = 0.06
+    ..strokeCap = StrokeCap.round;
+
   @override
   void render(Canvas canvas) {
     for (final petal in encounter.petals) {
@@ -214,34 +232,12 @@ class BossPetals extends Component {
       canvas.save();
       canvas.translate(petal.x, petal.y);
       canvas.rotate(petal.angle);
-      canvas.drawLine(
-        const Offset(-1.4, 0),
-        const Offset(-0.45, 0),
-        Paint()
-          ..color = Color.fromRGBO(214, 170, 255, opacity * 0.35)
-          ..strokeWidth = 0.06
-          ..strokeCap = StrokeCap.round,
-      );
-      canvas.drawPath(
-        _shape,
-        Paint()
-          ..color = Color.fromRGBO(196, 92, 255, opacity * 0.55)
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 0.22),
-      );
-      canvas.drawPath(
-        _shape,
-        Paint()
-          ..shader = Gradient.radial(
-            const Offset(0.12, 0),
-            0.6,
-            [
-              Color.fromRGBO(255, 244, 255, opacity),
-              Color.fromRGBO(226, 140, 255, opacity),
-              Color.fromRGBO(150, 64, 214, opacity),
-            ],
-            const [0, 0.45, 1],
-          ),
-      );
+      _trail.color = Color.fromRGBO(214, 170, 255, opacity * 0.35);
+      canvas.drawLine(const Offset(-1.4, 0), const Offset(-0.45, 0), _trail);
+      _halo.color = Color.fromRGBO(0, 0, 0, opacity);
+      canvas.drawCircle(const Offset(0.05, 0), 0.8, _halo);
+      _body.color = Color.fromRGBO(0, 0, 0, opacity);
+      canvas.drawPath(_shape, _body);
       canvas.restore();
     }
   }

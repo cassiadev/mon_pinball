@@ -161,17 +161,21 @@ class _BackdropPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final bounds = Offset.zero & size;
-    canvas.drawRect(bounds, Paint()..color = PinballStyle.background);
     final source = Size(image.width.toDouble(), image.height.toDouble());
     final fitted = applyBoxFit(BoxFit.cover, source, size);
+    // One pass: the plate is dimmed as it is drawn, so the header and board
+    // stay the brightest layer without a second full-screen fill.
     canvas.drawImageRect(
       image,
       Alignment.center.inscribe(fitted.source, Offset.zero & source),
       Alignment.center.inscribe(fitted.destination, bounds),
-      Paint()..filterQuality = FilterQuality.medium,
+      Paint()
+        ..filterQuality = FilterQuality.medium
+        ..colorFilter = const ColorFilter.mode(
+          Color(0x7A050817),
+          BlendMode.srcATop,
+        ),
     );
-    // Dim the plate so the header and board stay the brightest layer.
-    canvas.drawRect(bounds, Paint()..color = const Color(0x7A050817));
   }
 
   @override
@@ -316,7 +320,7 @@ class _TableLabels extends StatelessWidget {
       fontSize: unit * 0.78,
       height: 1.15,
       color: PinballStyle.text.withValues(alpha: 0.9),
-      shadows: const [Shadow(color: Colors.black, blurRadius: 3)],
+      shadows: const [Shadow(color: Colors.black, offset: Offset(0, 1))],
     );
     Widget caption(Offset board, Widget child) {
       final at = MonPinballGame.boardToViewport(board, size);
@@ -839,34 +843,10 @@ class _BossHealth extends StatelessWidget {
           ),
           const SizedBox(width: 6),
           Expanded(
-            child: Container(
-              height: 11,
-              padding: const EdgeInsets.all(1.5),
-              decoration: BoxDecoration(
-                color: const Color(0xE6090C22),
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(
-                  color: PinballStyle.gold.withValues(alpha: 0.75),
-                ),
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(4),
-                child: ShaderMask(
-                  blendMode: BlendMode.srcIn,
-                  shaderCallback: (bounds) => LinearGradient(
-                    colors: snapshot.bossDefeated
-                        ? const [PinballStyle.gold, PinballStyle.gold]
-                        : const [Color(0xFF9B7CF2), PinballStyle.pink],
-                  ).createShader(bounds),
-                  child: LinearProgressIndicator(
-                    key: const ValueKey('pinball-boss-health'),
-                    value: remaining,
-                    minHeight: 8,
-                    color: Colors.white,
-                    backgroundColor: Colors.transparent,
-                  ),
-                ),
-              ),
+            child: HealthBar(
+              key: const ValueKey('pinball-boss-health'),
+              value: remaining,
+              defeated: snapshot.bossDefeated,
             ),
           ),
           const SizedBox(width: 6),

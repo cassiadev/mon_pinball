@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mon_pinball/pinball_game.dart';
+import 'package:mon_pinball/pinball_style.dart';
 
 import 'support/pinball_test_harness.dart';
 
@@ -16,7 +17,7 @@ void main() {
       await pumpPinballApp(tester, pauseGame: true);
       addTearDown(() => disposePinballScenario(tester));
       expect(find.bySemanticsLabel('츠키비나 남은 체력 16000 / 16000'), findsOneWidget);
-      final bar = tester.widget<LinearProgressIndicator>(
+      final bar = tester.widget<HealthBar>(
         find.byKey(const ValueKey('pinball-boss-health')),
       );
       expect(bar.value, 1);
@@ -45,7 +46,7 @@ void main() {
         await tester.pump();
         expect(
           tester
-              .widget<LinearProgressIndicator>(
+              .widget<HealthBar>(
                 find.byKey(const ValueKey('pinball-boss-health')),
               )
               .value,
@@ -98,7 +99,7 @@ void main() {
         );
         expect(
           tester
-              .widget<LinearProgressIndicator>(
+              .widget<HealthBar>(
                 find.byKey(const ValueKey('pinball-boss-health')),
               )
               .value,

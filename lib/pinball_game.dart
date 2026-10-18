@@ -667,7 +667,7 @@ class BossDamagePopup extends PositionComponent {
           fontSize: critical ? 1.3 : 0.95,
           fontWeight: FontWeight.w600,
           height: 1.1,
-          shadows: const [Shadow(color: Colors.black, blurRadius: 0.2)],
+          shadows: const [Shadow(color: Colors.black, offset: Offset(0, 0.08))],
         ),
       ),
       textDirection: TextDirection.ltr,
@@ -697,29 +697,40 @@ class TableWall extends BodyComponent<MonPinballGame> {
       ..createFixture(FixtureDef(shape, friction: 0.08, restitution: 0.6));
   }
 
-  @override
-  void render(Canvas canvas) {
+  late final Path _path = () {
     final path = Path()..moveTo(points.first.x, points.first.y);
     for (final point in points.skip(1)) {
       path.lineTo(point.x, point.y);
     }
-    Paint stroke(Color color, double width) => Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = width
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
-    canvas.drawPath(
-      path.shift(const Offset(0, 0.1)),
-      stroke(const Color(0xCC020612), 0.42),
-    );
-    canvas.drawPath(
-      path,
-      stroke(PinballStyle.neon.withValues(alpha: 0.45), 0.4)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 0.16),
-    );
-    canvas.drawPath(path, stroke(PinballStyle.neon, 0.13));
-    canvas.drawPath(path, stroke(const Color(0xFFE7ECFF), 0.04));
+    return path;
+  }();
+
+  static Paint _stroke(Color color, double width) => Paint()
+    ..color = color
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = width
+    ..strokeCap = StrokeCap.round
+    ..strokeJoin = StrokeJoin.round;
+
+  // Widening translucent strokes stand in for a blurred glow, which would
+  // cost a board-sized offscreen pass every frame.
+  static final _layers = [
+    _stroke(PinballStyle.neon.withValues(alpha: 0.1), 0.62),
+    _stroke(PinballStyle.neon.withValues(alpha: 0.22), 0.36),
+    _stroke(PinballStyle.neon, 0.13),
+    _stroke(const Color(0xFFE7ECFF), 0.04),
+  ];
+  static final _shadow = _stroke(const Color(0xCC020612), 0.42);
+
+  @override
+  void render(Canvas canvas) {
+    canvas.save();
+    canvas.translate(0, 0.1);
+    canvas.drawPath(_path, _shadow);
+    canvas.restore();
+    for (final layer in _layers) {
+      canvas.drawPath(_path, layer);
+    }
   }
 }
 

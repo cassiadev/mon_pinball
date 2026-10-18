@@ -93,9 +93,9 @@ class _DotMatrixPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final glow = Paint()
-      ..color = const Color(0x66F2B84B)
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.4);
+    // A wide translucent dot instead of a blurred glow keeps this cheap to
+    // redraw every frame.
+    final glow = Paint()..color = const Color(0x40F2B84B);
     final on = Paint()..color = const Color(0xFFFFD98A);
     final off = Paint()..color = const Color(0xFF2B2638);
     for (var digit = 0; digit < digits.length; digit++) {
@@ -105,7 +105,7 @@ class _DotMatrixPainter extends CustomPainter {
           final center = Offset((digit * 6 + col + 0.5) * 6, (row + 0.5) * 6);
           if (glyph[row * 5 + col] == '1') {
             // Lit dots nearly touch so digits stay legible at header size.
-            canvas.drawCircle(center, 3.2, glow);
+            canvas.drawCircle(center, 3.3, glow);
             canvas.drawCircle(center, 2.55, on);
           } else {
             canvas.drawCircle(center, 1.7, off);
@@ -220,4 +220,70 @@ class _CrescentPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_CrescentPainter oldDelegate) => false;
+}
+
+/// A gold-rimmed bar filled with a violet-to-pink gradient up to [value].
+///
+/// It paints the gradient directly rather than masking a progress indicator,
+/// which would need an offscreen layer every frame.
+class HealthBar extends StatelessWidget {
+  const HealthBar({required this.value, this.defeated = false, super.key});
+
+  final double value;
+  final bool defeated;
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(
+      size: const Size.fromHeight(11),
+      painter: _HealthBarPainter(value.clamp(0.0, 1.0), defeated),
+    );
+  }
+}
+
+class _HealthBarPainter extends CustomPainter {
+  const _HealthBarPainter(this.value, this.defeated);
+
+  final double value;
+  final bool defeated;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final frame = RRect.fromRectAndRadius(
+      Offset.zero & size,
+      const Radius.circular(6),
+    );
+    canvas.drawRRect(frame, Paint()..color = const Color(0xE6090C22));
+    final track = Offset.zero & size;
+    final inner = track.deflate(2);
+    if (value > 0) {
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(
+            inner.left,
+            inner.top,
+            inner.width * value,
+            inner.height,
+          ),
+          const Radius.circular(4),
+        ),
+        Paint()
+          ..shader = LinearGradient(
+            colors: defeated
+                ? const [PinballStyle.gold, PinballStyle.gold]
+                : const [Color(0xFF9B7CF2), PinballStyle.pink],
+          ).createShader(inner),
+      );
+    }
+    canvas.drawRRect(
+      frame.deflate(0.5),
+      Paint()
+        ..color = PinballStyle.gold.withValues(alpha: 0.75)
+        ..style = PaintingStyle.stroke,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_HealthBarPainter oldDelegate) =>
+      value != oldDelegate.value || defeated != oldDelegate.defeated;
 }
