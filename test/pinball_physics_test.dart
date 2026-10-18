@@ -40,12 +40,23 @@ void main() {
 
       expect(game.hud.value.launchCharge, 1);
       expect(game.hud.value.lives, remainingLives + 1);
-      expect(ball.position.y, closeTo(game.launchPosition.y, 0.001));
+      // The waiting ball rides the plunger head down as it is pulled.
+      expect(ball.body.bodyType, BodyType.static);
+      expect(
+        ball.position.y,
+        closeTo(game.launchPosition.y + MonPinballGame.plungerTravel, 0.001),
+      );
 
       game.setLauncherDragCharge(0.75);
       _advancePhysics(game, 5);
       expect(game.hud.value.launchCharge, 0.75);
-      expect(ball.position.y, closeTo(game.launchPosition.y, 0.001));
+      expect(
+        ball.position.y,
+        closeTo(
+          game.launchPosition.y + MonPinballGame.plungerTravel * 0.75,
+          0.001,
+        ),
+      );
 
       game.releaseLauncher();
       game.stepEngine();

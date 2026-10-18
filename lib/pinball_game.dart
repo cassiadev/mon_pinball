@@ -70,6 +70,9 @@ class MonPinballGame extends Forge2DGame with KeyboardEvents {
   /// units; its bottom is the plunger face the waiting ball rests on.
   static const launchLane = Rect.fromLTRB(24.4, 21, 26.9, 46.2);
 
+  /// How far a full pull draws the plunger head (and the waiting ball) down.
+  static const double plungerTravel = 2.2;
+
   /// One continuous boundary, so no two wall pieces meet at a ball-sized gap:
   /// left inlane guide, rounded top, right wall and the plunger face.
   static final List<Vector2> outerWall = [
@@ -211,7 +214,7 @@ class MonPinballGame extends Forge2DGame with KeyboardEvents {
 
     if (_isChargingLauncher && !_gameOver) {
       _launchCharge = (_launchCharge + dt * 0.8).clamp(0.0, 1.0);
-      _launcherView.charge = _launchCharge;
+      _showCharge();
       _emitHud();
     }
 
@@ -332,7 +335,7 @@ class MonPinballGame extends Forge2DGame with KeyboardEvents {
     }
     _isChargingLauncher = false;
     _launchCharge = charge.clamp(0.0, 1.0);
-    _launcherView.charge = _launchCharge;
+    _showCharge();
     _status = _launchCharge <= 0 ? 'Pull plunger down' : 'Release to launch';
     _emitHud();
   }
@@ -351,6 +354,8 @@ class MonPinballGame extends Forge2DGame with KeyboardEvents {
     _launchCharge = 0;
     _launcherView.charge = 0;
 
+    // The head snaps back to the lane floor and strikes the ball from there.
+    _ball.body.setTransform(launchPosition, 0);
     _ball.launch(power);
     boss.start();
     _status = 'Launched';
@@ -493,6 +498,17 @@ class MonPinballGame extends Forge2DGame with KeyboardEvents {
       pulse.removeFromParent();
     }
     _scorePulses.clear();
+  }
+
+  /// Draws the plunger head down and lets the waiting ball ride on it.
+  void _showCharge() {
+    _launcherView.charge = _launchCharge;
+    if (_canLaunchBall) {
+      _ball.body.setTransform(
+        launchPosition + Vector2(0, _launchCharge * plungerTravel),
+        0,
+      );
+    }
   }
 
   void _resetBall() {
@@ -1216,6 +1232,7 @@ class LauncherView extends Component {
       );
     }
 
+    // Pulling draws the head down and compresses the coil on a fixed base.
     final housing = Rect.fromLTRB(
       lane.left + 0.15,
       lane.bottom + 0.15,
@@ -1233,34 +1250,55 @@ class LauncherView extends Component {
         ..style = PaintingStyle.stroke
         ..strokeWidth = 0.16,
     );
-    final springTop = housing.top + 0.35;
-    final knobTop = housing.bottom - 1.55 + charge * 1.0;
+    final headTop = lane.bottom + charge * MonPinballGame.plungerTravel;
+    final springTop = headTop + 0.62;
+    final base = Rect.fromLTRB(
+      x - 0.6,
+      housing.bottom - 0.62,
+      x + 0.6,
+      housing.bottom - 0.2,
+    );
+    canvas.drawLine(
+      Offset(x, springTop),
+      Offset(x, base.top),
+      Paint()
+        ..color = const Color(0xFF6F7C92)
+        ..strokeWidth = 0.14,
+    );
     const turns = 8;
-    final coil = (knobTop - springTop) / turns;
+    final coil = (base.top - springTop) / turns;
     final spring = Path()..moveTo(x, springTop);
     for (var turn = 0; turn < turns; turn++) {
       spring
         ..lineTo(x - 0.62, springTop + (turn + 0.25) * coil)
         ..lineTo(x + 0.62, springTop + (turn + 0.75) * coil);
     }
-    spring.lineTo(x, knobTop);
+    spring.lineTo(x, base.top);
     canvas.drawPath(
       spring,
       Paint()
-        ..color = const Color(0xFFC9D3E6)
+        ..color = Color.lerp(
+          const Color(0xFFC9D3E6),
+          PinballStyle.cyan,
+          charge * 0.5,
+        )!
         ..style = PaintingStyle.stroke
         ..strokeWidth = 0.1,
     );
-    final knob = Rect.fromLTWH(x - 0.6, knobTop, 1.2, 1.05);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(base, const Radius.circular(0.1)),
+      PinballStyle.metal(base),
+    );
+    final head = Rect.fromLTWH(x - 0.72, headTop - 0.04, 1.44, 0.66);
     canvas.drawRRect(
       RRect.fromRectAndCorners(
-        knob,
-        topLeft: const Radius.circular(0.55),
-        topRight: const Radius.circular(0.55),
+        head,
+        topLeft: const Radius.circular(0.3),
+        topRight: const Radius.circular(0.3),
         bottomLeft: const Radius.circular(0.12),
         bottomRight: const Radius.circular(0.12),
       ),
-      PinballStyle.metal(knob),
+      PinballStyle.metal(head),
     );
   }
 }
