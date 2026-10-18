@@ -1,0 +1,216 @@
+import 'dart:typed_data';
+import 'dart:ui' as ui;
+
+import 'package:flame/flame.dart';
+import 'package:flame_forge2d/flame_forge2d.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:mon_pinball/boss_encounter.dart';
+import 'package:mon_pinball/moonlit_boss.dart';
+
+void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  test(
+    'loads transparent articulated art and draws an opaque face and brooch',
+    () async {
+      final encounter = BossEncounter();
+      final boss = MoonlitBoss(encounter);
+      await boss.onLoad();
+      final atlas = Flame.images.fromCache('moonlit/tsukibina-atlas.png');
+      final pixels = (await atlas.toByteData())!;
+      expect(pixels.getUint8(3), lessThan(5));
+      expect(
+        pixels.getUint8((253 * atlas.width + 273) * 4 + 3),
+        greaterThan(200),
+      );
+
+      final frame = await _render(boss, encounter);
+      // The brooch is at the physical weak point; the face is above it.
+      expect(_goldPixels(frame, 290, 290, 310, 310), greaterThan(250));
+      expect(_opaquePixels(frame, 285, 220, 315, 240), greaterThan(100));
+      // Atlas padding must not turn the board into six rectangular pictures.
+      expect(_opaquePixels(frame, 0, 0, 30, 30), 0);
+    },
+  );
+
+  test(
+    'idle breathing changes the limbs even after recentering the flight path',
+    () async {
+      final encounter = BossEncounter();
+      final boss = MoonlitBoss(encounter);
+      await boss.onLoad();
+      final first = await _render(boss, encounter);
+      encounter.update(0.5);
+      final breathing = await _render(boss, encounter);
+      expect(
+        _changedPixels(first, breathing, 80, 140, 250, 450),
+        greaterThan(500),
+      );
+    },
+  );
+
+  test(
+    'attack opens wings and sleeves, then returns to the resting pose',
+    () async {
+      final idle = BossEncounter()..update(3.05);
+      final attacking = BossEncounter()
+        ..start()
+        ..update(3.05);
+      final idleBoss = MoonlitBoss(idle);
+      final attackBoss = MoonlitBoss(attacking);
+      await idleBoss.onLoad();
+      await attackBoss.onLoad();
+      final idleFrame = await _render(idleBoss, idle);
+      final attackFrame = await _render(attackBoss, attacking);
+      // Adjacent hem artwork must not leak out of the right sleeve's atlas cell.
+      expect(
+        _count(attackFrame, 520, 350, 570, 500, (i) => attackFrame[i + 3] > 20),
+        0,
+      );
+      expect(
+        _changedPixels(idleFrame, attackFrame, 70, 120, 260, 450),
+        greaterThan(2000),
+      );
+      idle.update(0.5);
+      attacking.update(0.5);
+      expect(
+        _changedPixels(
+          await _render(attackBoss, attacking),
+          await _render(idleBoss, idle),
+          70,
+          120,
+          260,
+          300,
+        ),
+        0,
+      );
+    },
+  );
+
+  test(
+    'hurt recoils the articulated art while the brooch stays on the sensor',
+    () async {
+      final encounter = BossEncounter()
+        ..start()
+        ..update(1.2);
+      final boss = MoonlitBoss(encounter);
+      await boss.onLoad();
+      final before = await _render(boss, encounter);
+      final center = encounter.position;
+      encounter.checkHit(center - Vector2(8, 0), center);
+      final hurt = await _render(boss, encounter);
+      expect(
+        _changedPixels(before, hurt, 100, 130, 500, 500),
+        greaterThan(2000),
+      );
+      expect(_goldPixels(hurt, 290, 290, 310, 310), greaterThan(250));
+    },
+  );
+
+  test(
+    'a real burst draws small lilac petals that vanish when paused',
+    () async {
+      final encounter = BossEncounter()
+        ..start()
+        ..update(4.9);
+      final boss = MoonlitBoss(encounter);
+      await boss.onLoad();
+      final burst = await _render(boss, encounter);
+      encounter.pause();
+      final cleared = await _render(boss, encounter);
+      expect(
+        _changedPixels(burst, cleared, 0, 300, 600, 600),
+        greaterThan(200),
+      );
+    },
+  );
+
+  test(
+    'defeat fades the remaining figure instead of hiding it abruptly',
+    () async {
+      final encounter = BossEncounter()..start();
+      final boss = MoonlitBoss(encounter);
+      await boss.onLoad();
+      final before = await _render(boss, encounter);
+      for (var hit = 0; hit < 13; hit++) {
+        final center = encounter.position;
+        encounter.checkHit(center - Vector2(8, 0), center);
+        encounter.checkHit(center, center + Vector2(8, 0));
+      }
+      final after = await _render(boss, encounter);
+      expect(_opaquePixels(before, 280, 280, 320, 320), greaterThan(500));
+      expect(_opaquePixels(after, 280, 280, 320, 320), 0);
+      expect(
+        _count(after, 280, 280, 320, 320, (i) => after[i + 3] > 30),
+        greaterThan(500),
+      );
+    },
+  );
+}
+
+Future<Uint8List> _render(MoonlitBoss boss, BossEncounter encounter) async {
+  final recorder = ui.PictureRecorder();
+  final canvas = ui.Canvas(recorder);
+  canvas.translate(
+    300 - encounter.position.x * 20,
+    300 - encounter.position.y * 20,
+  );
+  canvas.scale(20);
+  boss.render(canvas);
+  final picture = recorder.endRecording();
+  final image = await picture.toImage(600, 600);
+  final bytes = (await image.toByteData(
+    format: ui.ImageByteFormat.rawRgba,
+  ))!.buffer.asUint8List();
+  image.dispose();
+  picture.dispose();
+  return bytes;
+}
+
+int _goldPixels(Uint8List frame, int x0, int y0, int x1, int y1) => _count(
+  frame,
+  x0,
+  y0,
+  x1,
+  y1,
+  (i) =>
+      frame[i] > 140 &&
+      frame[i + 1] > 100 &&
+      frame[i + 2] < 170 &&
+      frame[i + 3] > 200,
+);
+
+int _opaquePixels(Uint8List frame, int x0, int y0, int x1, int y1) =>
+    _count(frame, x0, y0, x1, y1, (i) => frame[i + 3] > 200);
+
+int _changedPixels(Uint8List a, Uint8List b, int x0, int y0, int x1, int y1) =>
+    _count(
+      a,
+      x0,
+      y0,
+      x1,
+      y1,
+      (i) =>
+          (a[i] - b[i]).abs() +
+              (a[i + 1] - b[i + 1]).abs() +
+              (a[i + 2] - b[i + 2]).abs() +
+              (a[i + 3] - b[i + 3]).abs() >
+          50,
+    );
+
+int _count(
+  Uint8List frame,
+  int x0,
+  int y0,
+  int x1,
+  int y1,
+  bool Function(int) matches,
+) {
+  var count = 0;
+  for (var y = y0; y < y1; y++) {
+    for (var x = x0; x < x1; x++) {
+      if (matches((y * 600 + x) * 4)) count++;
+    }
+  }
+  return count;
+}

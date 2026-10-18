@@ -79,7 +79,9 @@ Future<MonPinballGame> pumpPinballApp(
 
   await tester.pumpWidget(MonPinballApp(gameFactory: () => game));
   await tester.pump();
-  await game.loaded;
+  // Image decoding uses real asynchronous work outside the fake physics clock.
+  await tester.runAsync(() => game.loaded);
+  await tester.pump();
 
   // Mount queued physics bodies before a test freezes the engine.
   await tester.pump(const Duration(milliseconds: 16));

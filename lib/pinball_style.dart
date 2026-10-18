@@ -1,29 +1,31 @@
 import 'package:flutter/material.dart';
 
 abstract final class PinballStyle {
-  static const background = Color(0xFF080D1C);
-  static const panel = Color(0xFF101A35);
-  static const line = Color(0xFF2C3954);
-  static const text = Color(0xFFF2F5FC);
-  static const muted = Color(0xFFB3BED3);
-  static const cyan = Color(0xFF38DDE8);
-  static const yellow = Color(0xFFFFD84A);
-  static const red = Color(0xFFFF514A);
+  static const background = Color(0xFF070B20);
+  static const panel = Color(0xFF11162F);
+  static const line = Color(0xFF544B83);
+  static const text = Color(0xFFF4EDD7);
+  static const muted = Color(0xFFBFB8DE);
+  static const cyan = Color(0xFF61DDC5);
+  static const yellow = Color(0xFFEAC66F);
+  static const red = Color(0xFFF389AC);
   static const coral = Color(0xFFFF684E);
-  static const chrome = Color(0xFFC4CAD4);
+  static const chrome = Color(0xFFD7B771);
+  static const violet = Color(0xFFA38AEA);
+  static const gold = Color(0xFFD7B771);
 
   static Paint metal(Rect bounds) => Paint()
     ..shader = const LinearGradient(
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
       colors: [
-        Color(0xFFF3F6FC),
-        Color(0xFFA3B0C4),
-        Color(0xFF6F8099),
-        Color(0xFFE8EDF5),
-        Color(0xFF7F8FA7),
-        Color(0xFF536782),
-        Color(0xFF9FAFC1),
+        Color(0xFFFFEAB1),
+        Color(0xFFD8BA78),
+        Color(0xFF8E6D39),
+        Color(0xFFFFEBC2),
+        Color(0xFFC6A566),
+        Color(0xFF70532E),
+        Color(0xFFE6CA89),
       ],
       stops: [0, 0.16, 0.35, 0.48, 0.61, 0.82, 1],
     ).createShader(bounds);
@@ -89,8 +91,8 @@ class _DotMatrixPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final on = Paint()..color = const Color(0xFFFF9B37);
-    final off = Paint()..color = const Color(0xFF4B2813);
+    final on = Paint()..color = const Color(0xFFF6D286);
+    final off = Paint()..color = const Color(0xFF332D36);
     for (var digit = 0; digit < digits.length; digit++) {
       final glyph = _glyphs[int.parse(digits[digit])];
       for (var row = 0; row < 7; row++) {

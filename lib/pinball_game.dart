@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'pinball_style.dart';
+import 'moonlit_table.dart';
 
 class PinballSnapshot {
   const PinballSnapshot({
@@ -75,7 +76,7 @@ class MonPinballGame extends Forge2DGame with KeyboardEvents {
     camera.viewfinder.position = Vector2(boardWidth / 2, boardHeight / 2);
     camera.viewfinder.anchor = Anchor.center;
 
-    world.add(TableBackdrop());
+    world.add(MoonlitTable(await images.load('moonlit/garden.png')));
     world.addAll(_buildRails());
     world.addAll(_buildBumpers());
     world.addAll(_buildTargets());
@@ -307,19 +308,20 @@ class MonPinballGame extends Forge2DGame with KeyboardEvents {
     return [
       Bumper(
         bumperCenter: Vector2(10.0, 12.0),
-        radius: 1.65,
+        radius: 2.15,
         points: 250,
         color: PinballStyle.yellow,
       ),
       Bumper(
-        bumperCenter: Vector2(17.2, 14.8),
-        radius: 1.65,
+        // Preserve a full ball-width passage beside the diagonal launch rail.
+        bumperCenter: Vector2(16.8, 14.8),
+        radius: 2.15,
         points: 250,
         color: PinballStyle.red,
       ),
       Bumper(
-        bumperCenter: Vector2(13.2, 22.0),
-        radius: 1.9,
+        bumperCenter: Vector2(MoonlitTable.centerX, 22.0),
+        radius: 2.15,
         points: 400,
         color: PinballStyle.cyan,
       ),
@@ -373,166 +375,6 @@ class MonPinballGame extends Forge2DGame with KeyboardEvents {
   }
 }
 
-class TableBackdrop extends Component {
-  TableBackdrop() : super(priority: -100);
-
-  ui.Picture? _art;
-
-  @override
-  void render(Canvas canvas) {
-    // The lacquer, print, and screws never change during a game.
-    canvas.drawPicture(_art ??= _recordArt());
-  }
-
-  @override
-  void onRemove() {
-    _art?.dispose();
-    _art = null;
-    super.onRemove();
-  }
-
-  ui.Picture _recordArt() {
-    final recorder = ui.PictureRecorder();
-    final canvas = Canvas(recorder);
-    const board = Rect.fromLTWH(0, 0, 28, 48);
-    final outline = RRect.fromRectAndRadius(
-      board.deflate(0.28),
-      const Radius.circular(2.2),
-    );
-    canvas.drawRRect(
-      outline,
-      Paint()
-        ..shader = ui.Gradient.linear(
-          Offset.zero,
-          const Offset(18, 48),
-          const [Color(0xFF644B39), Color(0xFF4B3328), Color(0xFF34221B)],
-          const [0, 0.48, 1],
-        ),
-    );
-    final bevel = Paint()
-      ..shader = ui.Gradient.linear(
-        Offset.zero,
-        board.bottomRight,
-        const [
-          Color(0xFFF6F9FF),
-          Color(0xFFADBDCF),
-          Color(0xFFF7FBFF),
-          Color(0xFF6A7B92),
-          Color(0xFFB8C8D9),
-          Color(0xFF293340),
-        ],
-        const [0, 0.18, 0.34, 0.52, 0.72, 1],
-      )
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 0.26;
-    canvas.drawRRect(outline, bevel);
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(board.deflate(0.48), const Radius.circular(2)),
-      bevel..strokeWidth = 0.12,
-    );
-
-    final ink = Paint()
-      ..color = const Color(0x8C8A6750)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 0.055;
-    canvas.drawOval(const Rect.fromLTWH(5, 4.9, 16.8, 23.2), ink);
-    canvas.drawOval(
-      const Rect.fromLTWH(6.6, 7.1, 13.6, 18.8),
-      Paint()
-        ..color = const Color(0x448A6750)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 0.045,
-    );
-    final print = Path()
-      ..moveTo(3, 7)
-      ..lineTo(18, 7)
-      ..lineTo(20, 9)
-      ..moveTo(3, 7)
-      ..lineTo(3, 10)
-      ..lineTo(5, 10)
-      ..moveTo(3, 22)
-      ..lineTo(3, 27)
-      ..lineTo(6, 27)
-      ..moveTo(3, 29)
-      ..lineTo(3, 33)
-      ..lineTo(4.5, 33)
-      ..moveTo(16, 4)
-      ..lineTo(19, 4)
-      ..lineTo(21, 6)
-      ..moveTo(24, 9)
-      ..lineTo(24, 33)
-      ..moveTo(6, 23.5)
-      ..lineTo(20, 10.3)
-      ..moveTo(5.3, 10.5)
-      ..lineTo(20, 24)
-      ..moveTo(10.5, 35.2)
-      ..lineTo(14, 33)
-      ..lineTo(17.5, 35.2)
-      ..lineTo(14, 39)
-      ..close()
-      ..moveTo(12, 35.3)
-      ..lineTo(14, 34)
-      ..lineTo(16, 35.3)
-      ..lineTo(14, 37.7)
-      ..close();
-    for (var y = 27.4; y < 28.3; y += 0.4) {
-      print
-        ..moveTo(11.5, y)
-        ..lineTo(15.5, y);
-    }
-    canvas.drawPath(print, ink);
-    for (final label in const [
-      ('MON PINBALL', Offset(13.2, 5.2), 0.65, 0.25),
-      ('ORBITAL SYSTEMS', Offset(13.2, 6.3), 0.42, 0.15),
-      ('REACTOR ARRAY', Offset(13.2, 29), 0.4, 0.12),
-      ('OC', Offset(14, 36), 0.5, 0.12),
-      ('FLIGHT DECK', Offset(14, 45.4), 0.42, 0.12),
-    ]) {
-      final text = TextPainter(
-        text: TextSpan(
-          text: label.$1,
-          style: TextStyle(
-            fontFamily: 'IBMPlexMono',
-            fontSize: label.$3 * 100,
-            letterSpacing: label.$4 * 100,
-            color: const Color(0xFFC5AE97),
-          ),
-        ),
-        textDirection: TextDirection.ltr,
-      )..layout();
-      // Shape small world-space labels at a normal font size before scaling.
-      canvas.save();
-      canvas.translate(label.$2.dx, label.$2.dy);
-      canvas.scale(0.01);
-      text.paint(canvas, Offset(-text.width / 2, -text.height));
-      canvas.restore();
-      text.dispose();
-    }
-    for (final screw in const [
-      Offset(4.5, 4),
-      Offset(22, 4.5),
-      Offset(3, 33),
-      Offset(24.9, 35),
-      Offset(8, 44.5),
-      Offset(20, 44.5),
-    ]) {
-      canvas.drawCircle(
-        screw,
-        0.12,
-        PinballStyle.metal(Rect.fromCircle(center: screw, radius: 0.12)),
-      );
-      canvas.drawLine(
-        screw - const Offset(0.06, 0),
-        screw + const Offset(0.06, 0),
-        Paint()
-          ..color = PinballStyle.background
-          ..strokeWidth = 0.03,
-      );
-    }
-    return recorder.endRecording();
-  }
-}
-
 class TableRail extends BodyComponent<MonPinballGame> {
   TableRail(this.start, this.end, {this.width = 0.24})
     : super(
@@ -580,12 +422,12 @@ class TableRail extends BodyComponent<MonPinballGame> {
           Offset.zero,
           const Offset(28, 48),
           const [
-            Color(0xFFFAFCFF),
-            Color(0xFFA8B7CC),
-            Colors.white,
-            Color(0xFF344861),
-            Color(0xFFC8D6E5),
-            Color(0xFF75879F),
+            Color(0xFFFFE9AF),
+            Color(0xFFBDA36D),
+            Color(0xFFFFF1CE),
+            Color(0xFF745832),
+            Color(0xFFE4C384),
+            Color(0xFFAB8B54),
           ],
           const [0, 0.25, 0.43, 0.56, 0.76, 1],
         )
@@ -768,107 +610,7 @@ class Bumper extends BodyComponent<MonPinballGame> with ContactCallbacks {
   }
 
   @override
-  void render(Canvas canvas) {
-    final bounds = Rect.fromCircle(center: Offset.zero, radius: radius);
-    canvas.drawCircle(
-      const Offset(0, 0.16),
-      radius + 0.12,
-      Paint()..color = const Color(0xD9020613),
-    );
-    canvas.drawCircle(
-      Offset.zero,
-      radius,
-      Paint()..color = const Color(0xFF1B2946),
-    );
-    canvas.drawCircle(Offset.zero, radius - 0.05, PinballStyle.metal(bounds));
-    canvas.drawCircle(
-      Offset.zero,
-      radius - 0.05,
-      Paint()
-        ..color = const Color(0xFFD2DCE9)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 0.065,
-    );
-    canvas.drawCircle(
-      Offset.zero,
-      radius * 0.72,
-      Paint()..color = const Color(0xFF10182D),
-    );
-    canvas.drawCircle(
-      Offset.zero,
-      radius * 0.64,
-      PinballStyle.lens(bounds, color, _flash),
-    );
-    canvas.drawCircle(
-      Offset.zero,
-      radius * 0.67,
-      Paint()
-        ..color = Color.lerp(color, Colors.white, _flash)!
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 0.1,
-    );
-    canvas.drawCircle(
-      Offset.zero,
-      radius * 0.53,
-      Paint()
-        ..color = Colors.white.withValues(alpha: 0.45)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 0.035,
-    );
-    for (final x in [-1, 1]) {
-      for (final y in [-1, 1]) {
-        final screw = Offset(x * radius * 0.565, y * radius * 0.565);
-        canvas.drawCircle(
-          screw,
-          0.075,
-          Paint()..color = const Color(0xFF111B30),
-        );
-        canvas.drawLine(
-          screw - const Offset(0.04, 0),
-          screw + const Offset(0.04, 0),
-          Paint()
-            ..color = PinballStyle.chrome
-            ..strokeWidth = 0.024,
-        );
-      }
-    }
-    final reflection = Path()
-      ..moveTo(-radius * 0.48, -radius * 0.13)
-      ..quadraticBezierTo(
-        -radius * 0.4,
-        -radius * 0.58,
-        radius * 0.16,
-        -radius * 0.47,
-      );
-    canvas.drawPath(
-      reflection,
-      Paint()
-        ..color = Colors.white.withValues(alpha: 0.6)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 0.11
-        ..strokeCap = StrokeCap.round,
-    );
-    canvas.drawCircle(
-      Offset.zero,
-      radius * 0.23,
-      Paint()..color = Color.lerp(color, Colors.white, _flash * 0.7)!,
-    );
-    final mark = Paint()
-      ..color = Colors.white.withValues(alpha: 0.8)
-      ..strokeWidth = 0.055;
-    canvas.drawLine(Offset(-radius * 0.16, 0), Offset(radius * 0.16, 0), mark);
-    canvas.drawLine(Offset(0, -radius * 0.16), Offset(0, radius * 0.16), mark);
-    if (_flash > 0) {
-      canvas.drawCircle(
-        Offset.zero,
-        radius + 0.3,
-        Paint()
-          ..color = color.withValues(alpha: _flash * 0.8)
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 0.09,
-      );
-    }
-  }
+  void render(Canvas canvas) => drawJewelBumper(canvas, radius, color, _flash);
 }
 
 class Spinner extends BodyComponent<MonPinballGame> with ContactCallbacks {
@@ -1073,63 +815,55 @@ class Flipper extends BodyComponent<MonPinballGame> {
   void render(Canvas canvas) {
     final direction = isLeft ? 1.0 : -1.0;
     final tip = Offset(direction * _length, 0);
-    canvas.drawLine(
-      const Offset(0, 0.13),
-      tip + const Offset(0, 0.13),
+    final shape = Path()
+      ..moveTo(0, -_thickness / 2)
+      ..lineTo(tip.dx, -_thickness / 2)
+      ..lineTo(tip.dx, _thickness / 2)
+      ..lineTo(0, _thickness / 2)
+      ..close();
+    canvas.drawPath(
+      shape.shift(const Offset(0, 0.13)),
+      Paint()..color = Colors.black,
+    );
+    canvas.drawPath(
+      shape,
+      PinballStyle.lens(
+        shape.getBounds(),
+        PinballStyle.cyan,
+        isPressed ? 0.6 : 0,
+      ),
+    );
+    canvas.drawPath(
+      shape,
       Paint()
-        ..color = const Color(0xFF030712)
-        ..strokeWidth = 0.95
-        ..strokeCap = StrokeCap.round,
+        ..color = PinballStyle.text
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 0.06,
     );
     canvas.drawLine(
-      Offset.zero,
-      tip,
+      Offset(direction * 0.5, -0.19),
+      tip - const Offset(0, 0.08),
       Paint()
-        ..color = const Color(0xFF25364F)
-        ..strokeWidth = _thickness
-        ..strokeCap = StrokeCap.round,
+        ..color = Colors.white.withValues(alpha: 0.75)
+        ..strokeWidth = 0.035,
     );
-    canvas.drawLine(
-      const Offset(0, -0.04),
-      tip - const Offset(0, 0.04),
-      PinballStyle.metal(
-          Rect.fromPoints(
-            Offset(math.min(0, tip.dx), -0.4),
-            Offset(math.max(0, tip.dx), 0.4),
-          ),
-        )
-        ..strokeWidth = 0.64
-        ..strokeCap = StrokeCap.round,
-    );
-    canvas.drawLine(
-      Offset(direction * 0.5, -0.18),
-      Offset(direction * 4.7, -0.18),
-      Paint()
-        ..color = const Color(0xFFF0F7FF)
-        ..strokeWidth = 0.065
-        ..strokeCap = StrokeCap.round,
-    );
-    canvas.drawLine(
-      Offset(direction * 0.65, 0.05),
-      Offset(direction * 4.6, 0.05),
-      Paint()
-        ..color = isPressed ? Colors.white : PinballStyle.cyan
-        ..strokeWidth = isPressed ? 0.16 : 0.11
-        ..strokeCap = StrokeCap.round,
-    );
-    canvas.drawCircle(
-      Offset.zero,
-      0.38,
-      PinballStyle.metal(const Rect.fromLTWH(-0.38, -0.38, 0.76, 0.76)),
-    );
-    canvas.drawCircle(Offset.zero, 0.19, Paint()..color = PinballStyle.panel);
-    canvas.drawCircle(Offset.zero, 0.08, Paint()..color = PinballStyle.chrome);
+    canvas.drawCircle(Offset.zero, 0.4, Paint()..color = PinballStyle.gold);
+    canvas.drawCircle(Offset.zero, 0.3, Paint()..color = PinballStyle.panel);
+    for (var i = 0; i < 5; i++) {
+      final a = i * math.pi * 2 / 5;
+      canvas.drawCircle(
+        Offset(math.cos(a), math.sin(a)) * 0.16,
+        0.095,
+        Paint()..color = PinballStyle.text,
+      );
+    }
+    canvas.drawCircle(Offset.zero, 0.07, Paint()..color = PinballStyle.gold);
   }
 }
 
 class PinballBall extends BodyComponent<MonPinballGame> with ContactCallbacks {
   PinballBall({required this.startPosition})
-    : super(priority: 20, renderBody: false);
+    : super(priority: 80, renderBody: false);
 
   final Vector2 startPosition;
   static const double radius = 0.62;
@@ -1170,48 +904,44 @@ class PinballBall extends BodyComponent<MonPinballGame> with ContactCallbacks {
 
   @override
   void render(Canvas canvas) {
-    canvas.drawOval(
-      const Rect.fromLTWH(-0.66, 0.18, 1.32, 0.58),
-      Paint()..color = const Color(0xE6020512),
+    final velocity = body.linearVelocity;
+    if (body.bodyType == BodyType.dynamic && velocity.length2 > 4) {
+      final a = body.angle;
+      final local = Offset(
+        velocity.x * math.cos(a) + velocity.y * math.sin(a),
+        -velocity.x * math.sin(a) + velocity.y * math.cos(a),
+      );
+      final unit = local / local.distance;
+      final tail = unit * -(local.distance * 0.05).clamp(0.2, 3.0);
+      final side = Offset(-unit.dy, unit.dx) * 0.32;
+      canvas.drawPath(
+        Path()
+          ..moveTo(tail.dx, tail.dy)
+          ..lineTo(side.dx, side.dy)
+          ..lineTo(-side.dx, -side.dy)
+          ..close(),
+        Paint()
+          ..shader = ui.Gradient.linear(tail, Offset.zero, [
+            PinballStyle.cyan.withValues(alpha: 0),
+            PinballStyle.text.withValues(alpha: 0.65),
+          ]),
+      );
+    }
+    canvas.drawCircle(
+      Offset.zero,
+      radius + 0.12,
+      Paint()..color = const Color(0xFF090C20),
     );
     canvas.drawCircle(
       Offset.zero,
       radius,
       Paint()
         ..shader = ui.Gradient.radial(
-          const Offset(-0.28, -0.3),
-          radius * 1.6,
-          const [
-            Colors.white,
-            Color(0xFFECF9FF),
-            Color(0xFFB5C3D4),
-            Color(0xFF475C78),
-            Color(0xFFC4D3E7),
-            Color(0xFF445C78),
-          ],
-          const [0, 0.16, 0.36, 0.52, 0.72, 1],
+          const Offset(-0.2, -0.2),
+          radius * 1.5,
+          const [Colors.white, Color(0xFFFFF6CF), Color(0xFFD8CEA5)],
+          const [0, 0.6, 1],
         ),
-    );
-    canvas.drawCircle(
-      Offset.zero,
-      radius,
-      Paint()
-        ..color = const Color(0xFFE2F4FF)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 0.045,
-    );
-    canvas.drawOval(
-      const Rect.fromLTWH(-0.39, -0.35, 0.4, 0.22),
-      Paint()..color = Colors.white,
-    );
-    canvas.drawPath(
-      Path()
-        ..moveTo(-0.39, 0.29)
-        ..quadraticBezierTo(0, 0.52, 0.37, 0.24),
-      Paint()
-        ..color = const Color(0xFF80B9CF)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 0.07,
     );
   }
 }

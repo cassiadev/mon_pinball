@@ -262,9 +262,9 @@ class _Dashboard extends StatelessWidget {
             const SizedBox(height: 8),
             DecoratedBox(
               decoration: BoxDecoration(
-                color: const Color(0xFF100B08),
+                color: PinballStyle.panel,
                 borderRadius: BorderRadius.circular(4),
-                border: Border.all(color: const Color(0xFF4B3328)),
+                border: Border.all(color: PinballStyle.line),
               ),
               child: Padding(
                 padding: const EdgeInsets.symmetric(
@@ -477,9 +477,9 @@ class _CompactDashboard extends StatelessWidget {
         const SizedBox(height: 4),
         DecoratedBox(
           decoration: BoxDecoration(
-            color: const Color(0xFF100B08),
+            color: PinballStyle.panel,
             borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: const Color(0xFF4B3328)),
+            border: Border.all(color: PinballStyle.line),
           ),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),

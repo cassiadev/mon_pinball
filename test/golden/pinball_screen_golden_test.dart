@@ -143,7 +143,8 @@ Future<GlobalKey> _pumpGoldenGame(
     ),
   );
   await tester.pump();
-  await game.loaded;
+  await tester.runAsync(() => game.loaded);
+  await tester.pump();
 
   // Mount every queued Forge2D component on one deterministic frame.
   await tester.pump(const Duration(milliseconds: 16));
