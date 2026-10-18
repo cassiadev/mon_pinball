@@ -51,7 +51,7 @@ class DotMatrixScore extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final digits = score.toString().padLeft(7, '0');
+    final digits = score.toString().padLeft(8, '0');
     return Semantics(
       label: '점수 $score점',
       child: SizedBox(

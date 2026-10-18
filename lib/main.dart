@@ -403,6 +403,8 @@ class _Dashboard extends StatelessWidget {
                 ],
               ),
             ),
+            const SizedBox(height: 12),
+            _InstrumentPanel(child: _BossHealth(snapshot: snapshot)),
             const SizedBox(height: 16),
             const _ControlsHint(compact: false),
           ],
@@ -430,14 +432,24 @@ class _CompactDashboard extends StatelessWidget {
               child: FittedBox(
                 fit: BoxFit.scaleDown,
                 alignment: Alignment.centerLeft,
-                child: Text(
-                  'MON PINBALL',
-                  style: TextStyle(
-                    fontFamily: 'Rajdhani',
-                    fontSize: 20,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 1,
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'MON PINBALL',
+                      style: TextStyle(
+                        fontFamily: 'Rajdhani',
+                        fontSize: 20,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 1,
+                      ),
+                    ),
+                    Text(
+                      '달빛 정원',
+                      style: TextStyle(fontSize: 10, color: PinballStyle.muted),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -493,6 +505,8 @@ class _CompactDashboard extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 6),
+        _BossHealth(snapshot: snapshot),
+        const SizedBox(height: 6),
         Row(
           children: [
             Expanded(
@@ -533,6 +547,61 @@ class _CompactDashboard extends StatelessWidget {
           ],
         ),
       ],
+    );
+  }
+}
+
+class _BossHealth extends StatelessWidget {
+  const _BossHealth({required this.snapshot});
+
+  final PinballSnapshot snapshot;
+
+  @override
+  Widget build(BuildContext context) {
+    final remaining = snapshot.bossMaxHealth > 0
+        ? (snapshot.bossHealth / snapshot.bossMaxHealth).clamp(0.0, 1.0)
+        : 0.0;
+    return Semantics(
+      label: '츠키비나 남은 체력 ${snapshot.bossHealth} / ${snapshot.bossMaxHealth}',
+      excludeSemantics: true,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  '츠키비나 · 남은 체력',
+                  style: TextStyle(fontSize: 11, color: PinballStyle.muted),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                snapshot.bossDefeated ? '격파' : '${snapshot.combo} COMBO',
+                key: const ValueKey('pinball-combo'),
+                style: TextStyle(
+                  fontSize: 11,
+                  color: snapshot.bossDefeated
+                      ? PinballStyle.gold
+                      : PinballStyle.text,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 3),
+          LinearProgressIndicator(
+            key: const ValueKey('pinball-boss-health'),
+            value: remaining,
+            minHeight: 4,
+            color: snapshot.bossDefeated
+                ? PinballStyle.gold
+                : PinballStyle.violet,
+            backgroundColor: PinballStyle.line.withValues(alpha: 0.4),
+            borderRadius: BorderRadius.circular(3),
+          ),
+        ],
+      ),
     );
   }
 }

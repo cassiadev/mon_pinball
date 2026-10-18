@@ -6,6 +6,8 @@ import 'package:flame_forge2d/flame_forge2d.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mon_pinball/boss_encounter.dart';
 import 'package:mon_pinball/moonlit_boss.dart';
+import 'package:mon_pinball/moonlit_table.dart';
+import 'package:mon_pinball/pinball_style.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -46,6 +48,20 @@ void main() {
         _changedPixels(first, breathing, 80, 140, 250, 450),
         greaterThan(500),
       );
+    },
+  );
+
+  test(
+    'floating fabric leaves the upper jewel cores visible underneath',
+    () async {
+      final encounter = BossEncounter();
+      final boss = MoonlitBoss(encounter);
+      await boss.onLoad();
+      final frame = await _render(boss, encounter, withBumpers: true);
+      // The upper gold/rose cores sit at (10,12) and (16.8,14.8) on the table.
+      // Their green channels must retain light from the actual enamel below silk.
+      expect(frame[(340 * 600 + 220) * 4 + 1], greaterThan(110));
+      expect(frame[(396 * 600 + 356) * 4 + 1], greaterThan(65));
     },
   );
 
@@ -148,7 +164,11 @@ void main() {
   );
 }
 
-Future<Uint8List> _render(MoonlitBoss boss, BossEncounter encounter) async {
+Future<Uint8List> _render(
+  MoonlitBoss boss,
+  BossEncounter encounter, {
+  bool withBumpers = false,
+}) async {
   final recorder = ui.PictureRecorder();
   final canvas = ui.Canvas(recorder);
   canvas.translate(
@@ -156,6 +176,17 @@ Future<Uint8List> _render(MoonlitBoss boss, BossEncounter encounter) async {
     300 - encounter.position.y * 20,
   );
   canvas.scale(20);
+  if (withBumpers) {
+    for (final jewel in [
+      (const ui.Offset(10, 12), PinballStyle.yellow),
+      (const ui.Offset(16.8, 14.8), PinballStyle.red),
+    ]) {
+      canvas.save();
+      canvas.translate(jewel.$1.dx, jewel.$1.dy);
+      drawJewelBumper(canvas, 2.15, jewel.$2, 0);
+      canvas.restore();
+    }
+  }
   boss.render(canvas);
   final picture = recorder.endRecording();
   final image = await picture.toImage(600, 600);

@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flame/components.dart';
+import 'package:flame/flame.dart';
 import 'package:flame/input.dart';
 import 'package:flame_forge2d/flame_forge2d.dart';
 import 'package:flutter/material.dart';
@@ -9,6 +10,8 @@ import 'package:flutter/services.dart';
 
 import 'pinball_style.dart';
 import 'moonlit_table.dart';
+import 'boss_encounter.dart';
+import 'moonlit_boss.dart';
 
 class PinballSnapshot {
   const PinballSnapshot({
@@ -17,6 +20,10 @@ class PinballSnapshot {
     required this.launchCharge,
     required this.status,
     required this.gameOver,
+    this.bossHealth = 16000,
+    this.bossMaxHealth = 16000,
+    this.bossDefeated = false,
+    this.combo = 0,
   });
 
   final int score;
@@ -24,6 +31,10 @@ class PinballSnapshot {
   final double launchCharge;
   final String status;
   final bool gameOver;
+  final int bossHealth;
+  final int bossMaxHealth;
+  final bool bossDefeated;
+  final int combo;
 }
 
 class MonPinballGame extends Forge2DGame with KeyboardEvents {
@@ -44,6 +55,7 @@ class MonPinballGame extends Forge2DGame with KeyboardEvents {
   static const int _initialLives = 3;
 
   final ValueNotifier<PinballSnapshot> hud;
+  final BossEncounter boss = BossEncounter();
 
   @visibleForTesting
   bool get isLeftFlipperPressed =>
@@ -59,12 +71,15 @@ class MonPinballGame extends Forge2DGame with KeyboardEvents {
   late final LauncherView _launcherView;
 
   int _score = 0;
+  int _combo = 0;
   int _lives = _initialLives;
   double _launchCharge = 0;
   bool _isChargingLauncher = false;
   bool _keyboardLauncherDown = false;
   bool _gameOver = false;
   String _status = 'Drag right plunger';
+  BossDamagePopup? _damagePopup;
+  final _scorePulses = <PulseRing>{};
 
   @override
   Color backgroundColor() => PinballStyle.background;
@@ -76,7 +91,13 @@ class MonPinballGame extends Forge2DGame with KeyboardEvents {
     camera.viewfinder.position = Vector2(boardWidth / 2, boardHeight / 2);
     camera.viewfinder.anchor = Anchor.center;
 
-    world.add(MoonlitTable(await images.load('moonlit/garden.png')));
+    final art = await Future.wait([
+      images.load('moonlit/garden.png'),
+      Flame.images.load('moonlit/tsukibina-atlas.png'),
+    ]);
+    world.add(MoonlitTable(art.first));
+    world.add(MoonlitBoss(boss));
+    world.add(BossWeakPoint(boss));
     world.addAll(_buildRails());
     world.addAll(_buildBumpers());
     world.addAll(_buildTargets());
@@ -105,7 +126,38 @@ class MonPinballGame extends Forge2DGame with KeyboardEvents {
 
   @override
   void update(double dt) {
+    final from =
+        isLoaded && _ball.isMounted && _ball.body.bodyType == BodyType.dynamic
+        ? _ball.position.clone()
+        : null;
+    boss.update(dt);
     super.update(dt);
+    _scorePulses.removeWhere((pulse) => pulse.parent == null);
+
+    if (from != null && boss.active && !_gameOver) {
+      final damage = boss.checkHit(
+        from,
+        _ball.position,
+        ballRadius: PinballBall.radius,
+      );
+      if (damage > 0) {
+        _awardScore(damage, boss.position, PinballStyle.gold, '약점 격파');
+        _damagePopup?.removeFromParent();
+        _damagePopup = BossDamagePopup(
+          damage: damage,
+          position: boss.position + Vector2(2.2, -2.3),
+        );
+        world.add(_damagePopup!);
+        if (boss.defeated) {
+          _isChargingLauncher = false;
+          _launchCharge = 0;
+          _launcherView.charge = 0;
+          _resetBall();
+          _status = '승리! 츠키비나 격파 · 다시 시작';
+          _emitHud();
+        }
+      }
+    }
 
     if (_isChargingLauncher && !_gameOver) {
       _launchCharge = (_launchCharge + dt * 0.8).clamp(0.0, 1.0);
@@ -113,7 +165,11 @@ class MonPinballGame extends Forge2DGame with KeyboardEvents {
       _emitHud();
     }
 
-    if (!_gameOver && _ball.isMounted && _ball.position.y > boardHeight + 4) {
+    if (!_gameOver &&
+        !boss.defeated &&
+        _ball.isMounted &&
+        _ball.body.bodyType == BodyType.dynamic &&
+        _ball.position.y > boardHeight + 4) {
       _drainBall();
     }
   }
@@ -194,7 +250,7 @@ class MonPinballGame extends Forge2DGame with KeyboardEvents {
       _ball.isMounted && _ball.body.bodyType == BodyType.static;
 
   void startLauncherCharge({bool timed = true}) {
-    if (_gameOver) {
+    if (_gameOver || boss.defeated) {
       restartGame();
       if (!timed) {
         return;
@@ -209,7 +265,7 @@ class MonPinballGame extends Forge2DGame with KeyboardEvents {
   }
 
   void setLauncherDragCharge(double charge) {
-    if (_gameOver) {
+    if (_gameOver || boss.defeated) {
       restartGame();
     }
     if (!_canLaunchBall) {
@@ -223,7 +279,7 @@ class MonPinballGame extends Forge2DGame with KeyboardEvents {
   }
 
   void releaseLauncher() {
-    if (_gameOver) {
+    if (_gameOver || boss.defeated) {
       restartGame();
       return;
     }
@@ -237,12 +293,13 @@ class MonPinballGame extends Forge2DGame with KeyboardEvents {
     _launcherView.charge = 0;
 
     _ball.launch(power);
+    boss.start();
     _status = 'Launched';
     _emitHud();
   }
 
   void nudge() {
-    if (_gameOver || !_ball.isMounted) {
+    if (_gameOver || boss.defeated || !_ball.isMounted) {
       return;
     }
     _ball.body.applyLinearImpulse(Vector2(0, -10));
@@ -251,17 +308,28 @@ class MonPinballGame extends Forge2DGame with KeyboardEvents {
   }
 
   void addScore(int points, Vector2 at, Color color, String reason) {
-    if (_gameOver) {
+    if (_gameOver || boss.defeated) {
       return;
     }
+    _awardScore(points, at, color, reason);
+  }
+
+  void _awardScore(int points, Vector2 at, Color color, String reason) {
     _score += points;
+    // Every scoring hit counts toward the current ball's combo.
+    _combo += 1;
     _status = '+$points $reason';
-    world.add(PulseRing(position: at.clone(), color: color));
+    final pulse = PulseRing(position: at.clone(), color: color);
+    _scorePulses.add(pulse);
+    world.add(pulse);
     _emitHud();
   }
 
   void restartGame() {
+    boss.reset();
+    _clearCombatEffects();
     _score = 0;
+    _combo = 0;
     _lives = _initialLives;
     _gameOver = false;
     _status = 'Drag right plunger';
@@ -340,6 +408,9 @@ class MonPinballGame extends Forge2DGame with KeyboardEvents {
   }
 
   void _drainBall() {
+    boss.pause();
+    _clearCombatEffects();
+    _combo = 0;
     _lives -= 1;
     if (_lives <= 0) {
       _gameOver = true;
@@ -350,6 +421,15 @@ class MonPinballGame extends Forge2DGame with KeyboardEvents {
       _resetBall();
     }
     _emitHud();
+  }
+
+  void _clearCombatEffects() {
+    _damagePopup?.removeFromParent();
+    _damagePopup = null;
+    for (final pulse in _scorePulses) {
+      pulse.removeFromParent();
+    }
+    _scorePulses.clear();
   }
 
   void _resetBall() {
@@ -371,7 +451,86 @@ class MonPinballGame extends Forge2DGame with KeyboardEvents {
       launchCharge: _launchCharge,
       status: _status,
       gameOver: _gameOver,
+      bossHealth: boss.health,
+      bossMaxHealth: boss.maxHealth,
+      bossDefeated: boss.defeated,
+      combo: _combo,
     );
+  }
+}
+
+/// The outline shares the exact center and radius used by the hit sensor.
+class BossWeakPoint extends Component {
+  BossWeakPoint(this.boss) : super(priority: 40);
+
+  final BossEncounter boss;
+
+  @override
+  void render(Canvas canvas) {
+    if (boss.defeated) return;
+    final center = boss.position.toOffset();
+    canvas.drawCircle(
+      center,
+      boss.weakPointRadius,
+      Paint()
+        ..color = PinballStyle.gold.withValues(alpha: 0.42)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 0.055,
+    );
+    final glint = Paint()
+      ..color = PinballStyle.gold.withValues(alpha: 0.8)
+      ..strokeWidth = 0.045;
+    canvas.drawLine(
+      center - const Offset(0.22, 0),
+      center + const Offset(0.22, 0),
+      glint,
+    );
+    canvas.drawLine(
+      center - const Offset(0, 0.3),
+      center + const Offset(0, 0.3),
+      glint,
+    );
+  }
+}
+
+class BossDamagePopup extends PositionComponent {
+  BossDamagePopup({required this.damage, required super.position})
+    : super(priority: 120);
+
+  final int damage;
+  double _age = 0;
+
+  @override
+  void update(double dt) {
+    super.update(dt);
+    _age += dt;
+    position.y -= dt * 1.2;
+    if (_age >= 0.9) removeFromParent();
+  }
+
+  @override
+  void render(Canvas canvas) {
+    final opacity = ((0.9 - _age) / 0.3).clamp(0.0, 1.0);
+    final text = TextPainter(
+      text: TextSpan(
+        text: '−$damage',
+        children: const [
+          TextSpan(text: '\n약점 격파', style: TextStyle(fontSize: 0.8)),
+        ],
+        style: TextStyle(
+          color: PinballStyle.gold.withValues(alpha: opacity),
+          fontFamily: 'Rajdhani',
+          fontFamilyFallback: const ['sans-serif'],
+          fontSize: 1.3,
+          fontWeight: FontWeight.w600,
+          height: 1.1,
+          shadows: const [Shadow(color: Colors.black, blurRadius: 0.2)],
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+      textAlign: TextAlign.center,
+    )..layout();
+    text.paint(canvas, Offset(-text.width / 2, -text.height / 2));
   }
 }
 

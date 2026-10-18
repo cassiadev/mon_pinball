@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flame/components.dart';
+import 'package:flame/flame.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -76,6 +77,7 @@ Future<MonPinballGame> pumpPinballApp(
   await preparePinballTestSurface(tester);
   final game = MonPinballGame();
   currentPinballGame = game;
+  await loadPinballGameArt(tester, game);
 
   await tester.pumpWidget(MonPinballApp(gameFactory: () => game));
   await tester.pump();
@@ -90,6 +92,19 @@ Future<MonPinballGame> pumpPinballApp(
   }
   await tester.pump();
   return game;
+}
+
+/// Decode production textures before entering the widget's fake frame clock.
+Future<void> loadPinballGameArt(
+  WidgetTester tester,
+  MonPinballGame game,
+) async {
+  await tester.runAsync(() async {
+    await Future.wait([
+      game.images.load('moonlit/garden.png'),
+      Flame.images.load('moonlit/tsukibina-atlas.png'),
+    ]);
+  });
 }
 
 MonPinballGame requirePinballGame() {

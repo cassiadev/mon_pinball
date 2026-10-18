@@ -52,7 +52,7 @@ class MoonlitBoss extends Component {
       const Size(10.5, 8.2),
       const Offset(-1.3, -1),
       wing + 0.035 * drift,
-      0.82 * fade,
+      0.72 * fade,
     );
     _part(
       canvas,
@@ -62,7 +62,7 @@ class MoonlitBoss extends Component {
       const Size(10.5, 8.2),
       const Offset(1.3, -1),
       -wing + 0.035 * drift,
-      0.82 * fade,
+      0.72 * fade,
     );
 
     // The trailing fabric lags behind both flight and the attack gesture.
@@ -74,7 +74,7 @@ class MoonlitBoss extends Component {
       const Size(15, 10),
       const Offset(0, 2),
       math.sin(time * 2.1 - 0.7) * 0.04 + drift * 0.025,
-      0.67 * fade,
+      0.30 * fade,
     );
     final sleeve = math.sin(time * 2.1 - 0.4) * 0.045 + opening * 0.3;
     _part(
@@ -85,7 +85,7 @@ class MoonlitBoss extends Component {
       const Size(10, 10),
       const Offset(-1.3, -0.8),
       sleeve + hurt * 0.16,
-      0.72 * fade,
+      0.40 * fade,
     );
     _part(
       canvas,
@@ -95,7 +95,7 @@ class MoonlitBoss extends Component {
       const Size(10, 10),
       const Offset(1.3, -0.8),
       -sleeve - hurt * 0.16,
-      0.72 * fade,
+      0.40 * fade,
     );
     _part(
       canvas,

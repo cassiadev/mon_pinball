@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mon_pinball/main.dart';
 import 'package:mon_pinball/pinball_game.dart';
 
 import 'support/pinball_test_harness.dart';
@@ -10,8 +9,8 @@ void main() {
   setUpAll(loadPinballTestFont);
 
   testWidgets('pinball app renders HUD', (WidgetTester tester) async {
-    await tester.pumpWidget(const MonPinballApp());
-    await tester.pump();
+    await pumpPinballApp(tester, pauseGame: true);
+    addTearDown(() => disposePinballScenario(tester));
 
     expect(find.text('MON PINBALL'), findsOneWidget);
     expect(find.byKey(const ValueKey('pinball-lives')), findsOneWidget);
