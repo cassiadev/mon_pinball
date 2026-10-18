@@ -1,13 +1,11 @@
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
+import 'package:flame/components.dart';
 import 'package:flame/flame.dart';
-import 'package:flame_forge2d/flame_forge2d.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mon_pinball/boss_encounter.dart';
 import 'package:mon_pinball/moonlit_boss.dart';
-import 'package:mon_pinball/moonlit_table.dart';
-import 'package:mon_pinball/pinball_style.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -28,12 +26,24 @@ void main() {
 
       final frame = await _render(boss, encounter);
       // The brooch is at the physical weak point; the face is above it.
-      expect(_goldPixels(frame, 290, 290, 310, 310), greaterThan(250));
-      expect(_opaquePixels(frame, 285, 220, 315, 240), greaterThan(100));
+      expect(_goldPixels(frame, 290, 290, 310, 310), greaterThan(150));
+      expect(_opaquePixels(frame, 285, 210, 315, 235), greaterThan(500));
       // Atlas padding must not turn the board into six rectangular pictures.
-      expect(_opaquePixels(frame, 0, 0, 30, 30), 0);
+      expect(_opaquePixels(frame, 0, 130, 25, 160), 0);
     },
   );
+
+  test('each part keeps the drawn aspect ratio of its atlas cell', () async {
+    final encounter = BossEncounter();
+    final boss = MoonlitBoss(encounter);
+    await boss.onLoad();
+    final frame = await _render(boss, encounter);
+    final bounds = _opaqueBounds(frame);
+    // The finished figure spreads wide like the mockup instead of a thin
+    // column: wings and sleeves span far more than the body is tall.
+    expect(bounds.width / bounds.height, greaterThan(1.1));
+    expect(bounds.width, greaterThan(20 * 20));
+  });
 
   test(
     'idle breathing changes the limbs even after recentering the flight path',
@@ -51,19 +61,25 @@ void main() {
     },
   );
 
-  test(
-    'floating fabric leaves the upper jewel cores visible underneath',
-    () async {
-      final encounter = BossEncounter();
-      final boss = MoonlitBoss(encounter);
-      await boss.onLoad();
-      final frame = await _render(boss, encounter, withBumpers: true);
-      // The upper gold/rose cores sit at (10,12) and (16.8,14.8) on the table.
-      // Their green channels must retain light from the actual enamel below silk.
-      expect(frame[(340 * 600 + 220) * 4 + 1], greaterThan(110));
-      expect(frame[(396 * 600 + 356) * 4 + 1], greaterThan(65));
-    },
-  );
+  test('the right sleeve crop stops in the gap before the next hem', () async {
+    final encounter = BossEncounter();
+    final boss = MoonlitBoss(encounter);
+    await boss.onLoad();
+    final atlas = Flame.images.fromCache('moonlit/tsukibina-atlas.png');
+    final pixels = (await atlas.toByteData())!;
+    int alpha(int x, int y) => pixels.getUint8((y * atlas.width + x) * 4 + 3);
+    // Cell 4 starts at (512, 512); the sleeve is cropped at local x = 448.
+    for (var y = 512; y < 1024; y++) {
+      expect(alpha(512 + 448, y), lessThan(17));
+    }
+    var hem = 0;
+    for (var y = 512; y < 1024; y++) {
+      for (var x = 512 + 462; x < 1024; x++) {
+        if (alpha(x, y) > 16) hem++;
+      }
+    }
+    expect(hem, greaterThan(1000));
+  });
 
   test(
     'attack opens wings and sleeves, then returns to the resting pose',
@@ -78,11 +94,6 @@ void main() {
       await attackBoss.onLoad();
       final idleFrame = await _render(idleBoss, idle);
       final attackFrame = await _render(attackBoss, attacking);
-      // Adjacent hem artwork must not leak out of the right sleeve's atlas cell.
-      expect(
-        _count(attackFrame, 520, 350, 570, 500, (i) => attackFrame[i + 3] > 20),
-        0,
-      );
       expect(
         _changedPixels(idleFrame, attackFrame, 70, 120, 260, 450),
         greaterThan(2000),
@@ -119,21 +130,20 @@ void main() {
         _changedPixels(before, hurt, 100, 130, 500, 500),
         greaterThan(2000),
       );
-      expect(_goldPixels(hurt, 290, 290, 310, 310), greaterThan(250));
+      expect(_goldPixels(hurt, 290, 290, 310, 310), greaterThan(150));
     },
   );
 
   test(
-    'a real burst draws small lilac petals that vanish when paused',
+    'a real burst draws glowing lilac petals that vanish when paused',
     () async {
       final encounter = BossEncounter()
         ..start()
         ..update(4.9);
-      final boss = MoonlitBoss(encounter);
-      await boss.onLoad();
-      final burst = await _render(boss, encounter);
+      final petals = BossPetals(encounter);
+      final burst = await _render(petals, encounter);
       encounter.pause();
-      final cleared = await _render(boss, encounter);
+      final cleared = await _render(petals, encounter);
       expect(
         _changedPixels(burst, cleared, 0, 300, 600, 600),
         greaterThan(200),
@@ -164,11 +174,7 @@ void main() {
   );
 }
 
-Future<Uint8List> _render(
-  MoonlitBoss boss,
-  BossEncounter encounter, {
-  bool withBumpers = false,
-}) async {
+Future<Uint8List> _render(Component layer, BossEncounter encounter) async {
   final recorder = ui.PictureRecorder();
   final canvas = ui.Canvas(recorder);
   canvas.translate(
@@ -176,18 +182,7 @@ Future<Uint8List> _render(
     300 - encounter.position.y * 20,
   );
   canvas.scale(20);
-  if (withBumpers) {
-    for (final jewel in [
-      (const ui.Offset(10, 12), PinballStyle.yellow),
-      (const ui.Offset(16.8, 14.8), PinballStyle.red),
-    ]) {
-      canvas.save();
-      canvas.translate(jewel.$1.dx, jewel.$1.dy);
-      drawJewelBumper(canvas, 2.15, jewel.$2, 0);
-      canvas.restore();
-    }
-  }
-  boss.render(canvas);
+  layer.render(canvas);
   final picture = recorder.endRecording();
   final image = await picture.toImage(600, 600);
   final bytes = (await image.toByteData(
@@ -210,6 +205,26 @@ int _goldPixels(Uint8List frame, int x0, int y0, int x1, int y1) => _count(
       frame[i + 2] < 170 &&
       frame[i + 3] > 200,
 );
+
+ui.Rect _opaqueBounds(Uint8List frame) {
+  var left = 600, top = 600, right = 0, bottom = 0;
+  for (var y = 0; y < 600; y++) {
+    for (var x = 0; x < 600; x++) {
+      if (frame[(y * 600 + x) * 4 + 3] > 200) {
+        left = x < left ? x : left;
+        right = x > right ? x : right;
+        top = y < top ? y : top;
+        bottom = y > bottom ? y : bottom;
+      }
+    }
+  }
+  return ui.Rect.fromLTRB(
+    left.toDouble(),
+    top.toDouble(),
+    right.toDouble(),
+    bottom.toDouble(),
+  );
+}
 
 int _opaquePixels(Uint8List frame, int x0, int y0, int x1, int y1) =>
     _count(frame, x0, y0, x1, y1, (i) => frame[i + 3] > 200);

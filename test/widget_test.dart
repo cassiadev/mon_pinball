@@ -27,9 +27,13 @@ void main() {
     final status = tester.getRect(find.byKey(const ValueKey('pinball-status')));
 
     expect(score.bottom, lessThanOrEqualTo(table.top));
-    expect(status.bottom, lessThanOrEqualTo(table.top));
+    // The live status sits on its own line under the table, as in the mockup.
+    expect(status.top, greaterThanOrEqualTo(table.bottom));
     expect(find.text('다시 시작'), findsOneWidget);
-    expect(table.width / table.height, closeTo(28 / 48, 0.001));
+    expect(
+      table.width / table.height,
+      closeTo(MonPinballGame.boardWidth / MonPinballGame.boardHeight, 0.001),
+    );
   });
 
   testWidgets('portrait table fills the available width', (tester) async {

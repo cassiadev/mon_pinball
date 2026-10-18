@@ -50,7 +50,7 @@ void main() {
               .value,
           closeTo(0.92, 0.0001),
         );
-        expect(find.text('3 COMBO'), findsOneWidget);
+        expect(_comboText('3'), findsOneWidget);
         expect(
           find.bySemanticsLabel('츠키비나 남은 체력 14720 / 16000'),
           findsOneWidget,
@@ -87,7 +87,7 @@ void main() {
           combo: 13,
         );
         await tester.pump();
-        expect(find.text('격파'), findsOneWidget);
+        expect(_comboText('격파'), findsOneWidget);
         expect(
           tester
               .getSemantics(find.bySemanticsLabel('츠키비나 남은 체력 0 / 16000'))
@@ -107,10 +107,15 @@ void main() {
         await tester.pump();
         expect(game.hud.value.bossHealth, 16000);
         expect(game.hud.value.bossDefeated, isFalse);
-        expect(find.text('0 COMBO'), findsOneWidget);
+        expect(_comboText('0'), findsOneWidget);
       } finally {
         semantics.dispose();
       }
     },
   );
 }
+
+Finder _comboText(String text) => find.descendant(
+  of: find.byKey(const ValueKey('pinball-combo')),
+  matching: find.text(text),
+);

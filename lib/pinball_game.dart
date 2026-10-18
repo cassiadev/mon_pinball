@@ -51,8 +51,55 @@ class MonPinballGame extends Forge2DGame with KeyboardEvents {
       super(gravity: Vector2(0, 32), zoom: 12);
 
   static const double boardWidth = 28;
-  static const double boardHeight = 48;
+  static const double boardHeight = 56;
   static const int _initialLives = 3;
+
+  /// Share of the game viewport the board occupies, leaving room for trim.
+  static const double boardFill = 0.96;
+
+  /// Maps a board point to the game widget's local coordinates.
+  static Offset boardToViewport(Offset board, Size viewport) {
+    final zoom =
+        math.min(viewport.width / boardWidth, viewport.height / boardHeight) *
+        boardFill;
+    return viewport.center(Offset.zero) +
+        (board - const Offset(boardWidth / 2, boardHeight / 2)) * zoom;
+  }
+
+  /// The plunger lane between its inner wall and the right wall, in board
+  /// units; its bottom is the plunger face the waiting ball rests on.
+  static const launchLane = Rect.fromLTRB(24.4, 21, 26.9, 46.2);
+
+  /// One continuous boundary, so no two wall pieces meet at a ball-sized gap:
+  /// left inlane guide, rounded top, right wall and the plunger face.
+  static final List<Vector2> outerWall = [
+    // The guide ends just above the flipper's top face, right of its pivot,
+    // so a rolling ball drops onto the flipper instead of cradling beside it.
+    Vector2(7.1, 50.95),
+    Vector2(1.1, 44),
+    ..._arc(Vector2(5.1, 4.6), math.pi, math.pi * 1.5),
+    ..._arc(Vector2(22.9, 4.6), math.pi * 1.5, math.pi * 2),
+    Vector2(26.9, launchLane.bottom),
+    Vector2(launchLane.left, launchLane.bottom),
+  ];
+
+  /// The lane's inner wall runs straight into the right inlane guide, which
+  /// mirrors the left guide about the shared centre line x = 14.
+  static final List<Vector2> laneWall = [
+    Vector2(launchLane.left, launchLane.top),
+    Vector2(launchLane.left, 46.896),
+    Vector2(20.9, 50.95),
+  ];
+
+  static List<Vector2> _arc(Vector2 center, double from, double to) => [
+    for (var i = 0; i <= 8; i++)
+      center +
+          Vector2(
+                math.cos(from + (to - from) * i / 8),
+                math.sin(from + (to - from) * i / 8),
+              ) *
+              4,
+  ];
 
   final ValueNotifier<PinballSnapshot> hud;
   final BossEncounter boss = BossEncounter();
@@ -81,8 +128,9 @@ class MonPinballGame extends Forge2DGame with KeyboardEvents {
   BossDamagePopup? _damagePopup;
   final _scorePulses = <PulseRing>{};
 
+  // The Flutter garden backdrop shows around the board.
   @override
-  Color backgroundColor() => PinballStyle.background;
+  Color backgroundColor() => const Color(0x00000000);
 
   @override
   Future<void> onLoad() async {
@@ -96,14 +144,16 @@ class MonPinballGame extends Forge2DGame with KeyboardEvents {
       Flame.images.load('moonlit/tsukibina-atlas.png'),
     ]);
     world.add(MoonlitTable(art.first));
+    world.add(TableTrim());
     world.add(MoonlitBoss(boss));
+    world.add(BossPetals(boss));
     world.add(BossWeakPoint(boss));
-    world.addAll(_buildRails());
+    world.addAll(_buildWalls());
     world.addAll(_buildBumpers());
     world.addAll(_buildTargets());
 
-    _leftFlipper = Flipper.left(Vector2(8.4, 41.4));
-    _rightFlipper = Flipper.right(Vector2(19.6, 41.4));
+    _leftFlipper = Flipper.left(Vector2(6.6, 52.3));
+    _rightFlipper = Flipper.right(Vector2(21.4, 52.3));
     world.add(_leftFlipper);
     world.add(_rightFlipper);
 
@@ -121,7 +171,7 @@ class MonPinballGame extends Forge2DGame with KeyboardEvents {
     super.onGameResize(size);
     final zoomX = size.x / boardWidth;
     final zoomY = size.y / boardHeight;
-    camera.viewfinder.zoom = math.min(zoomX, zoomY) * 0.96;
+    camera.viewfinder.zoom = math.min(zoomX, zoomY) * boardFill;
   }
 
   @override
@@ -168,11 +218,20 @@ class MonPinballGame extends Forge2DGame with KeyboardEvents {
     if (!_gameOver &&
         !boss.defeated &&
         _ball.isMounted &&
-        _ball.body.bodyType == BodyType.dynamic &&
-        _ball.position.y > boardHeight + 4) {
-      _drainBall();
+        _ball.body.bodyType == BodyType.dynamic) {
+      if (_ball.position.y > boardHeight + 4) {
+        _drainBall();
+      } else if (_isRestingOnPlunger()) {
+        _rearmBall();
+      }
     }
   }
+
+  /// A ball that rolls back down the lane settles on the plunger face.
+  bool _isRestingOnPlunger() =>
+      _ball.position.x > launchLane.left &&
+      _ball.position.y > launchLane.bottom - PinballBall.radius - 0.3 &&
+      _ball.body.linearVelocity.length2 < 2.25;
 
   @override
   KeyEventResult onKeyEvent(
@@ -227,10 +286,10 @@ class MonPinballGame extends Forge2DGame with KeyboardEvents {
     final worldPosition = screenToWorld(
       Vector2(screenPosition.dx, screenPosition.dy),
     );
-    return worldPosition.x >= 23.0 &&
-        worldPosition.x <= 27.4 &&
-        worldPosition.y >= 34.5 &&
-        worldPosition.y <= 47.6;
+    return worldPosition.x >= 24.0 &&
+        worldPosition.x <= boardWidth &&
+        worldPosition.y >= 38 &&
+        worldPosition.y <= boardHeight;
   }
 
   double launcherChargeFromDrag({
@@ -340,34 +399,28 @@ class MonPinballGame extends Forge2DGame with KeyboardEvents {
     _emitHud();
   }
 
-  List<Component> _buildRails() {
+  List<Component> _buildWalls() {
     return [
-      TableRail(Vector2(4.0, 2.0), Vector2(22.0, 2.0), width: 0.34),
-      TableRail(Vector2(1.4, 6.2), Vector2(4.0, 2.0), width: 0.34),
-      TableRail(Vector2(22.0, 2.0), Vector2(27.0, 7.8), width: 0.34),
-      TableRail(Vector2(1.4, 6.2), Vector2(1.4, 41.4), width: 0.38),
-      TableRail(Vector2(26.6, 6.8), Vector2(26.6, 47.0), width: 0.38),
-      TableRail(Vector2(1.4, 41.4), Vector2(7.2, 46.2), width: 0.42),
-      TableRail(Vector2(20.8, 46.2), Vector2(23.7, 42.4), width: 0.42),
-      TableRail(Vector2(22.35, 16.8), Vector2(22.35, 43.2), width: 0.3),
-      TableRail(Vector2(22.35, 16.8), Vector2(18.9, 11.2), width: 0.3),
-      TableRail(Vector2(21.7, 7.0), Vector2(18.9, 11.2), width: 0.3),
-      LaunchLaneExit(),
+      TableWall(outerWall),
+      TableWall(laneWall),
       Slingshot(
-        vertices: [Vector2(5.2, 34.7), Vector2(9.4, 37.3), Vector2(6.5, 39.2)],
+        vertices: [Vector2(2.9, 18.9), Vector2(7.1, 21.5), Vector2(3.65, 23.8)],
+        color: PinballStyle.cyan,
+      ),
+      // Each lower slingshot keeps a full-ball inlane channel beside its guide.
+      Slingshot(
+        vertices: [Vector2(4.8, 43.4), Vector2(9.4, 46), Vector2(7.9, 49)],
         color: PinballStyle.red,
       ),
       Slingshot(
         vertices: [
-          Vector2(22.8, 34.7),
-          Vector2(18.6, 37.3),
-          Vector2(21.5, 39.2),
+          // Flush with the lane wall: a ball against the wall lands on the
+          // sloping top face instead of balancing on the corner.
+          Vector2(23.9, 43.4),
+          Vector2(18.6, 46),
+          Vector2(20.1, 49),
         ],
         color: PinballStyle.yellow,
-      ),
-      Slingshot(
-        vertices: [Vector2(5.4, 14.0), Vector2(9.2, 17.5), Vector2(4.8, 20.1)],
-        color: PinballStyle.cyan,
       ),
     ];
   }
@@ -375,35 +428,38 @@ class MonPinballGame extends Forge2DGame with KeyboardEvents {
   List<Component> _buildBumpers() {
     return [
       Bumper(
-        bumperCenter: Vector2(10.0, 12.0),
-        radius: 2.15,
+        bumperCenter: Vector2(9.6, 13.7),
+        radius: 2.0,
         points: 250,
         color: PinballStyle.yellow,
       ),
       Bumper(
-        // Preserve a full ball-width passage beside the diagonal launch rail.
-        bumperCenter: Vector2(16.8, 14.8),
-        radius: 2.15,
+        bumperCenter: Vector2(18.4, 13.7),
+        radius: 2.0,
         points: 250,
         color: PinballStyle.red,
       ),
       Bumper(
-        bumperCenter: Vector2(MoonlitTable.centerX, 22.0),
-        radius: 2.15,
+        bumperCenter: Vector2(MoonlitTable.centerX, 18.1),
+        radius: 2.0,
         points: 400,
         color: PinballStyle.cyan,
       ),
-      Spinner(spinnerCenter: Vector2(7.0, 25.8), points: 150),
-      Spinner(spinnerCenter: Vector2(20.7, 25.6), points: 150),
+      // Mirrored bars: the left one reads as \ and the right one as /.
+      Spinner(spinnerCenter: Vector2(5.75, 30.15), barAngle: 0.5, points: 150),
+      Spinner(spinnerCenter: Vector2(20.7, 30.15), barAngle: -0.5, points: 150),
     ];
   }
 
   List<Component> _buildTargets() {
     return [
-      DropTarget(targetCenter: Vector2(7.2, 30.1), targetAngle: -0.35),
-      DropTarget(targetCenter: Vector2(10.2, 31.3), targetAngle: -0.25),
-      DropTarget(targetCenter: Vector2(17.6, 31.3), targetAngle: 0.25),
-      DropTarget(targetCenter: Vector2(20.6, 30.1), targetAngle: 0.35),
+      // Paired targets leave a full ball width between them; a narrower gap
+      // lets the ball balance on both corners.
+      DropTarget(targetCenter: Vector2(5.25, 39.3), targetAngle: 0.42),
+      DropTarget(targetCenter: Vector2(9.9, 40.85), targetAngle: 0.25),
+      DropTarget(targetCenter: Vector2(18.1, 40.85), targetAngle: -0.25),
+      // Its upper corner passes the centre of a ball resting on the wall.
+      DropTarget(targetCenter: Vector2(22.75, 39.3), targetAngle: -0.42),
     ];
   }
 
@@ -420,6 +476,13 @@ class MonPinballGame extends Forge2DGame with KeyboardEvents {
       _status = 'Ball drained - $_lives left';
       _resetBall();
     }
+    _emitHud();
+  }
+
+  void _rearmBall() {
+    boss.pause();
+    _resetBall();
+    _status = 'Ball returned - drag plunger';
     _emitHud();
   }
 
@@ -442,7 +505,10 @@ class MonPinballGame extends Forge2DGame with KeyboardEvents {
     _ball.body.angularVelocity = 0;
   }
 
-  Vector2 _launchPosition() => Vector2(25.0, 43.0);
+  Vector2 get launchPosition =>
+      Vector2(launchLane.center.dx, launchLane.bottom - PinballBall.radius);
+
+  Vector2 _launchPosition() => launchPosition;
 
   void _emitHud() {
     hud.value = PinballSnapshot(
@@ -535,111 +601,43 @@ class BossDamagePopup extends PositionComponent {
   }
 }
 
-class TableRail extends BodyComponent<MonPinballGame> {
-  TableRail(this.start, this.end, {this.width = 0.24})
-    : super(
-        priority: -10,
-        paint: Paint()
-          ..color = const Color(0xFFB9F7FF)
-          ..style = PaintingStyle.stroke
-          ..strokeCap = StrokeCap.round,
-      );
+/// A continuous neon guide. Chain vertices share endpoints, so the ball can
+/// never wedge between two separately placed rail pieces.
+class TableWall extends BodyComponent<MonPinballGame> {
+  TableWall(this.points) : super(priority: -10, renderBody: false);
 
-  final Vector2 start;
-  final Vector2 end;
-  final double width;
+  final List<Vector2> points;
 
   @override
   Body createBody() {
-    final shape = EdgeShape()..set(start, end);
-    final fixtureDef = FixtureDef(shape, friction: 0.08, restitution: 0.86);
-    return world.createBody(BodyDef())..createFixture(fixtureDef);
+    final shape = ChainShape()..createChain(points);
+    return world.createBody(BodyDef())
+      ..createFixture(FixtureDef(shape, friction: 0.08, restitution: 0.6));
   }
 
   @override
-  void renderEdge(Canvas canvas, Offset p1, Offset p2) {
-    canvas.drawLine(
-      p1 + const Offset(0, 0.12),
-      p2 + const Offset(0, 0.12),
-      Paint()
-        ..color = const Color(0xFF020612)
-        ..strokeWidth = width + 0.24
-        ..strokeCap = StrokeCap.round,
-    );
-    canvas.drawLine(
-      p1,
-      p2,
-      Paint()
-        ..color = const Color(0xFF344963)
-        ..strokeWidth = width + 0.12
-        ..strokeCap = StrokeCap.round,
-    );
-    canvas.drawLine(
-      p1,
-      p2,
-      Paint()
-        ..shader = ui.Gradient.linear(
-          Offset.zero,
-          const Offset(28, 48),
-          const [
-            Color(0xFFFFE9AF),
-            Color(0xFFBDA36D),
-            Color(0xFFFFF1CE),
-            Color(0xFF745832),
-            Color(0xFFE4C384),
-            Color(0xFFAB8B54),
-          ],
-          const [0, 0.25, 0.43, 0.56, 0.76, 1],
-        )
-        ..strokeWidth = width
-        ..strokeCap = StrokeCap.round,
-    );
-    canvas.drawLine(
-      p1 - const Offset(0, 0.05),
-      p2 - const Offset(0, 0.05),
-      Paint()
-        ..color = const Color(0xFFD9E9F4)
-        ..strokeWidth = 0.05
-        ..strokeCap = StrokeCap.round,
-    );
-  }
-}
-
-class LaunchLaneExit extends BodyComponent<MonPinballGame>
-    with ContactCallbacks {
-  LaunchLaneExit() : super(priority: -5, renderBody: false);
-
-  double _cooldown = 0;
-
-  @override
-  Body createBody() {
-    final shape = PolygonShape()..setAsBoxXY(2.1, 1.35);
-    final body = world.createBody(
-      BodyDef(position: Vector2(24.35, 7.7), userData: this),
-    );
-    body.createFixture(FixtureDef(shape, userData: this, isSensor: true));
-    return body;
-  }
-
-  @override
-  void beginContact(Object other, Contact contact) {
-    if (other is! PinballBall ||
-        _cooldown > 0 ||
-        other.position.x < 22.0 ||
-        other.body.linearVelocity.y >= 0) {
-      return;
+  void render(Canvas canvas) {
+    final path = Path()..moveTo(points.first.x, points.first.y);
+    for (final point in points.skip(1)) {
+      path.lineTo(point.x, point.y);
     }
-
-    _cooldown = 0.7;
-    // Keep the upward launch speed to clear the tip of the inner rail.
-    other.body.linearVelocity = Vector2(-30, other.body.linearVelocity.y);
-    other.body.angularVelocity = -18;
-  }
-
-  @override
-  void update(double dt) {
-    super.update(dt);
-    _cooldown = math.max(0, _cooldown - dt);
+    Paint stroke(Color color, double width) => Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = width
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    canvas.drawPath(
+      path.shift(const Offset(0, 0.1)),
+      stroke(const Color(0xCC020612), 0.42),
+    );
+    canvas.drawPath(
+      path,
+      stroke(PinballStyle.neon.withValues(alpha: 0.45), 0.4)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 0.16),
+    );
+    canvas.drawPath(path, stroke(PinballStyle.neon, 0.13));
+    canvas.drawPath(path, stroke(const Color(0xFFE7ECFF), 0.04));
   }
 }
 
@@ -679,37 +677,35 @@ class Slingshot extends BodyComponent<MonPinballGame> with ContactCallbacks {
   @override
   void render(Canvas canvas) {
     final points = vertices.map((v) => v.toOffset()).toList();
+    final center = _center.toOffset();
     final path = Path()..addPolygon(points, true);
     final bounds = path.getBounds();
     canvas.drawPath(
-      path.shift(const Offset(0, 0.12)),
-      Paint()
-        ..color = const Color(0xDD020613)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 0.3,
+      path.shift(const Offset(0, 0.14)),
+      Paint()..color = const Color(0xDD020613),
     );
+    // A gold setting around a faceted glass face, as in the table mockup.
     canvas.drawPath(path, PinballStyle.metal(bounds));
-    final center = _center.toOffset();
-    final face = Path()
-      ..addPolygon(
-        points.map((p) => center + (p - center) * 0.78).toList(),
-        true,
-      );
+    final inset = [for (final point in points) center + (point - center) * 0.8];
+    final face = Path()..addPolygon(inset, true);
     canvas.drawPath(face, PinballStyle.lens(bounds, color, _flash));
+    final facet = Paint()
+      ..color = Colors.white.withValues(alpha: 0.32 + _flash * 0.45)
+      ..strokeWidth = 0.045;
+    for (var i = 0; i < 3; i++) {
+      final opposite = (inset[(i + 1) % 3] + inset[(i + 2) % 3]) / 2;
+      canvas.drawLine(inset[i], opposite, facet);
+    }
     canvas.drawPath(
       face,
       Paint()
-        ..color = const Color(0xFF70839E)
+        ..color = Color.lerp(color, Colors.black, 0.55)!
         ..style = PaintingStyle.stroke
         ..strokeWidth = 0.06,
     );
-    canvas.drawLine(
-      points[0],
-      points[1],
-      Paint()
-        ..color = Color.lerp(color, Colors.white, _flash * 0.7)!
-        ..strokeWidth = 0.13,
-    );
+    for (final point in points) {
+      _drawGoldStud(canvas, point, 0.22);
+    }
   }
 
   Vector2 _calculateCenter() {
@@ -773,18 +769,29 @@ class Bumper extends BodyComponent<MonPinballGame> with ContactCallbacks {
   void render(Canvas canvas) => drawJewelBumper(canvas, radius, color, _flash);
 }
 
+/// A pivoting bar beside the moon: hits spin it once and score.
 class Spinner extends BodyComponent<MonPinballGame> with ContactCallbacks {
-  Spinner({required this.spinnerCenter, required this.points})
-    : super(priority: 4, renderBody: false);
+  Spinner({
+    required this.spinnerCenter,
+    required this.barAngle,
+    required this.points,
+  }) : super(priority: 4, renderBody: false);
+
+  static const double halfLength = 1.75;
+  static const double halfThickness = 0.3;
 
   final Vector2 spinnerCenter;
+
+  /// Rest angle in radians; positive reads as \ on screen, negative as /.
+  final double barAngle;
   final int points;
   double _spin = 0;
   double _cooldown = 0;
 
   @override
   Body createBody() {
-    final shape = PolygonShape()..setAsBox(1.8, 0.22, Vector2.zero(), 0.45);
+    final shape = PolygonShape()
+      ..setAsBox(halfLength, halfThickness, Vector2.zero(), barAngle);
     final body = world.createBody(
       BodyDef(position: spinnerCenter, userData: this),
     );
@@ -813,25 +820,42 @@ class Spinner extends BodyComponent<MonPinballGame> with ContactCallbacks {
   @override
   void render(Canvas canvas) {
     canvas.save();
-    canvas.rotate(0.45 + _spin * math.pi * 2);
-    const bounds = Rect.fromLTWH(-1.8, -0.22, 3.6, 0.44);
-    final blade = RRect.fromRectAndRadius(bounds, const Radius.circular(0.13));
+    canvas.rotate(barAngle + _spin * math.pi * 2);
+    const bounds = Rect.fromLTRB(
+      -halfLength,
+      -halfThickness,
+      halfLength,
+      halfThickness,
+    );
+    final capsule = RRect.fromRectAndRadius(
+      bounds,
+      const Radius.circular(halfThickness),
+    );
     canvas.drawRRect(
-      blade.shift(const Offset(0, 0.15)),
-      Paint()..color = const Color(0xFF030712),
+      capsule.shift(const Offset(0, 0.15)),
+      Paint()..color = const Color(0xDD030712),
     );
-    canvas.drawRRect(blade, PinballStyle.metal(bounds));
-    final accent = Paint()
-      ..color = PinballStyle.cyan
-      ..strokeWidth = 0.11;
-    canvas.drawLine(const Offset(-1.5, 0), const Offset(-0.6, 0), accent);
-    canvas.drawLine(const Offset(0.6, 0), const Offset(1.5, 0), accent);
-    canvas.drawCircle(
-      Offset.zero,
-      0.32,
-      PinballStyle.metal(const Rect.fromLTWH(-0.32, -0.32, 0.64, 0.64)),
+    canvas.drawRRect(capsule, PinballStyle.lens(bounds, PinballStyle.cyan, 0));
+    canvas.drawRRect(
+      capsule,
+      Paint()
+        ..color = const Color(0xFF0E3C3A)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 0.06,
     );
-    canvas.drawCircle(Offset.zero, 0.17, Paint()..color = PinballStyle.panel);
+    canvas.drawLine(
+      const Offset(-halfLength + 0.45, -0.12),
+      const Offset(halfLength - 0.45, -0.12),
+      Paint()
+        ..color = Colors.white.withValues(alpha: 0.55)
+        ..strokeWidth = 0.05
+        ..strokeCap = StrokeCap.round,
+    );
+    for (final end in const [-1.0, 1.0]) {
+      final cap = Offset(end * (halfLength - 0.3), 0);
+      _drawGoldStud(canvas, cap, 0.36);
+      canvas.drawCircle(cap, 0.15, Paint()..color = const Color(0xFF1B1630));
+    }
     canvas.restore();
   }
 }
@@ -840,6 +864,9 @@ class DropTarget extends BodyComponent<MonPinballGame> with ContactCallbacks {
   DropTarget({required this.targetCenter, required this.targetAngle})
     : super(priority: 4, renderBody: false);
 
+  static const double halfLength = 1.5;
+  static const double halfHeight = 0.55;
+
   final Vector2 targetCenter;
   final double targetAngle;
   double _flash = 0;
@@ -847,7 +874,7 @@ class DropTarget extends BodyComponent<MonPinballGame> with ContactCallbacks {
 
   @override
   Body createBody() {
-    final shape = PolygonShape()..setAsBoxXY(1.05, 0.34);
+    final shape = PolygonShape()..setAsBoxXY(halfLength, halfHeight);
     final body = world.createBody(
       BodyDef(position: targetCenter, angle: targetAngle, userData: this),
     );
@@ -875,34 +902,60 @@ class DropTarget extends BodyComponent<MonPinballGame> with ContactCallbacks {
 
   @override
   void render(Canvas canvas) {
-    const bounds = Rect.fromLTWH(-1.05, -0.34, 2.1, 0.68);
-    final rect = RRect.fromRectAndRadius(bounds, const Radius.circular(0.09));
-    canvas.drawRRect(
-      rect.shift(const Offset(0, 0.12)),
-      Paint()..color = const Color(0xFF020613),
-    );
-    canvas.drawRRect(rect, PinballStyle.metal(bounds));
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        bounds.deflate(0.12),
-        const Radius.circular(0.045),
-      ),
-      Paint()..color = const Color(0xFFC8403C),
+    const bounds = Rect.fromLTRB(
+      -halfLength,
+      -halfHeight,
+      halfLength,
+      halfHeight,
     );
     canvas.drawRRect(
       RRect.fromRectAndRadius(
-        bounds.deflate(0.19),
-        const Radius.circular(0.04),
+        bounds.shift(const Offset(0, 0.14)),
+        const Radius.circular(0.14),
       ),
-      Paint()..color = Color.lerp(PinballStyle.red, Colors.white, _flash)!,
+      Paint()..color = const Color(0xDD020613),
     );
-    canvas.drawLine(
-      const Offset(-0.54, -0.08),
-      const Offset(0.54, -0.08),
+    // A lacquered red tag between two gold caps with a stitched seam.
+    final tag = bounds.deflate(0.06);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(tag, const Radius.circular(0.1)),
       Paint()
-        ..color = const Color(0xFFFFD6CD)
-        ..strokeWidth = 0.03,
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Color.lerp(const Color(0xFFF0605A), Colors.white, _flash * 0.6)!,
+            Color.lerp(const Color(0xFFC3302E), Colors.white, _flash * 0.4)!,
+          ],
+        ).createShader(tag),
     );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(tag, const Radius.circular(0.1)),
+      Paint()
+        ..color = const Color(0xFF6B1418)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 0.05,
+    );
+    final seam = Paint()
+      ..color = const Color(0xFF5A1015)
+      ..strokeWidth = 0.06
+      ..strokeCap = StrokeCap.round;
+    canvas.drawLine(const Offset(-0.75, 0), const Offset(0.75, 0), seam);
+    for (var i = 0; i < 4; i++) {
+      final x = -0.42 + i * 0.28;
+      canvas.drawLine(Offset(x + 0.08, -0.26), Offset(x - 0.08, 0.26), seam);
+    }
+    for (final end in const [-1.0, 1.0]) {
+      final cap = Rect.fromCenter(
+        center: Offset(end * (halfLength - 0.2), 0),
+        width: 0.42,
+        height: halfHeight * 2 + 0.06,
+      );
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(cap, const Radius.circular(0.12)),
+        PinballStyle.metal(cap),
+      );
+    }
   }
 }
 
@@ -917,19 +970,20 @@ class Flipper extends BodyComponent<MonPinballGame> {
   factory Flipper.left(Vector2 pivot) => Flipper._(
     pivot: pivot,
     isLeft: true,
-    restAngle: 0.28,
-    activeAngle: -0.76,
+    restAngle: 0.44,
+    activeAngle: -0.42,
   );
 
   factory Flipper.right(Vector2 pivot) => Flipper._(
     pivot: pivot,
     isLeft: false,
-    restAngle: -0.28,
-    activeAngle: 0.76,
+    restAngle: -0.44,
+    activeAngle: 0.42,
   );
 
-  static const double _length = 5.0;
-  static const double _thickness = 0.7;
+  static const double length = 5.9;
+  static const double baseRadius = 0.75;
+  static const double tipRadius = 0.42;
 
   final Vector2 pivot;
   final bool isLeft;
@@ -937,11 +991,23 @@ class Flipper extends BodyComponent<MonPinballGame> {
   final double activeAngle;
   bool isPressed = false;
 
+  double get _direction => isLeft ? 1.0 : -1.0;
+
+  /// Outer tangents of the base and tip circles, clockwise from the base top.
+  List<Vector2> get _tangents {
+    final sine = (baseRadius - tipRadius) / length;
+    final cosine = math.sqrt(1 - sine * sine);
+    final dx = _direction;
+    return [
+      Vector2(dx * baseRadius * sine, -baseRadius * cosine),
+      Vector2(dx * (length + tipRadius * sine), -tipRadius * cosine),
+      Vector2(dx * (length + tipRadius * sine), tipRadius * cosine),
+      Vector2(dx * baseRadius * sine, baseRadius * cosine),
+    ];
+  }
+
   @override
   Body createBody() {
-    final centerOffset = Vector2(isLeft ? _length / 2 : -_length / 2, 0);
-    final shape = PolygonShape()
-      ..setAsBox(_length / 2, _thickness / 2, centerOffset, 0);
     final body = world.createBody(
       BodyDef(
         type: BodyType.kinematic,
@@ -950,9 +1016,16 @@ class Flipper extends BodyComponent<MonPinballGame> {
         allowSleep: false,
       ),
     );
-    body.createFixture(
-      FixtureDef(shape, density: 4, friction: 0.22, restitution: 0.18),
-    );
+    // The tapered blade: a rounded base, a rounded tip and the hull between.
+    for (final shape in <Shape>[
+      CircleShape(radius: baseRadius),
+      CircleShape(radius: tipRadius, position: Vector2(_direction * length, 0)),
+      PolygonShape()..set(_tangents),
+    ]) {
+      body.createFixture(
+        FixtureDef(shape, density: 4, friction: 0.22, restitution: 0.18),
+      );
+    }
     return body;
   }
 
@@ -973,51 +1046,67 @@ class Flipper extends BodyComponent<MonPinballGame> {
 
   @override
   void render(Canvas canvas) {
-    final direction = isLeft ? 1.0 : -1.0;
-    final tip = Offset(direction * _length, 0);
+    final tip = Offset(_direction * length, 0);
+    final t = _tangents.map((v) => v.toOffset()).toList();
     final shape = Path()
-      ..moveTo(0, -_thickness / 2)
-      ..lineTo(tip.dx, -_thickness / 2)
-      ..lineTo(tip.dx, _thickness / 2)
-      ..lineTo(0, _thickness / 2)
+      ..moveTo(t[0].dx, t[0].dy)
+      ..lineTo(t[1].dx, t[1].dy)
+      ..arcToPoint(
+        t[2],
+        radius: const Radius.circular(tipRadius),
+        clockwise: isLeft,
+      )
+      ..lineTo(t[3].dx, t[3].dy)
+      ..arcToPoint(
+        t[0],
+        radius: const Radius.circular(baseRadius),
+        clockwise: isLeft,
+      )
       ..close();
     canvas.drawPath(
-      shape.shift(const Offset(0, 0.13)),
-      Paint()..color = Colors.black,
+      shape.shift(const Offset(0, 0.16)),
+      Paint()..color = const Color(0xDD000000),
     );
     canvas.drawPath(
       shape,
       PinballStyle.lens(
         shape.getBounds(),
         PinballStyle.cyan,
-        isPressed ? 0.6 : 0,
+        isPressed ? 0.5 : 0,
       ),
     );
     canvas.drawPath(
       shape,
       Paint()
-        ..color = PinballStyle.text
+        ..color = PinballStyle.gold
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 0.06,
+        ..strokeWidth = 0.08,
     );
     canvas.drawLine(
-      Offset(direction * 0.5, -0.19),
-      tip - const Offset(0, 0.08),
+      Offset(_direction * 1.1, -0.36),
+      tip + Offset(-_direction * 0.4, -0.24),
       Paint()
-        ..color = Colors.white.withValues(alpha: 0.75)
-        ..strokeWidth = 0.035,
+        ..color = Colors.white.withValues(alpha: 0.7)
+        ..strokeWidth = 0.06
+        ..strokeCap = StrokeCap.round,
     );
-    canvas.drawCircle(Offset.zero, 0.4, Paint()..color = PinballStyle.gold);
-    canvas.drawCircle(Offset.zero, 0.3, Paint()..color = PinballStyle.panel);
+    _drawGoldStud(canvas, tip, 0.3);
+    // Gold mon cap with a five-petal flower over the pivot.
+    _drawGoldStud(canvas, Offset.zero, 0.64);
+    canvas.drawCircle(
+      Offset.zero,
+      0.48,
+      Paint()..color = const Color(0xFF1A1733),
+    );
     for (var i = 0; i < 5; i++) {
-      final a = i * math.pi * 2 / 5;
+      final a = -math.pi / 2 + i * math.pi * 2 / 5;
       canvas.drawCircle(
-        Offset(math.cos(a), math.sin(a)) * 0.16,
-        0.095,
+        Offset(math.cos(a), math.sin(a)) * 0.2,
+        0.13,
         Paint()..color = PinballStyle.text,
       );
     }
-    canvas.drawCircle(Offset.zero, 0.07, Paint()..color = PinballStyle.gold);
+    canvas.drawCircle(Offset.zero, 0.08, Paint()..color = PinballStyle.gold);
   }
 }
 
@@ -1026,7 +1115,7 @@ class PinballBall extends BodyComponent<MonPinballGame> with ContactCallbacks {
     : super(priority: 80, renderBody: false);
 
   final Vector2 startPosition;
-  static const double radius = 0.62;
+  static const double radius = 0.7;
 
   @override
   Body createBody() {
@@ -1058,7 +1147,7 @@ class PinballBall extends BodyComponent<MonPinballGame> with ContactCallbacks {
   void launch(double power) {
     body.setType(BodyType.dynamic);
     body.setAwake(true);
-    body.linearVelocity = Vector2(0, -55 - 48 * power);
+    body.linearVelocity = Vector2(0, -57.5 - 42.5 * power);
     body.angularVelocity = 18 * power;
   }
 
@@ -1106,6 +1195,7 @@ class PinballBall extends BodyComponent<MonPinballGame> with ContactCallbacks {
   }
 }
 
+/// The plunger housing below the lane floor, with charge ticks above it.
 class LauncherView extends Component {
   LauncherView() : super(priority: 15);
 
@@ -1113,56 +1203,64 @@ class LauncherView extends Component {
 
   @override
   void render(Canvas canvas) {
-    const bounds = Rect.fromLTWH(24.15, 37, 1.7, 9.7);
-    final track = RRect.fromRectAndRadius(bounds, const Radius.circular(0.65));
-    canvas.drawRRect(track, Paint()..color = const Color(0xFF070C19));
+    const lane = MonPinballGame.launchLane;
+    final x = lane.center.dx;
+    for (var tick = 0; tick < 5; tick++) {
+      final lit = charge * 5 > tick;
+      canvas.drawLine(
+        Offset(x - 0.42, lane.bottom - 1.8 - tick * 0.9),
+        Offset(x + 0.42, lane.bottom - 1.8 - tick * 0.9),
+        Paint()
+          ..color = PinballStyle.cyan.withValues(alpha: lit ? 0.95 : 0.3)
+          ..strokeWidth = 0.14,
+      );
+    }
+
+    final housing = Rect.fromLTRB(
+      lane.left + 0.15,
+      lane.bottom + 0.15,
+      lane.right - 0.15,
+      lane.bottom + 5.6,
+    );
+    final capsule = RRect.fromRectAndRadius(
+      housing,
+      const Radius.circular(0.55),
+    );
+    canvas.drawRRect(capsule, Paint()..color = const Color(0xFF070B1A));
     canvas.drawRRect(
-      track,
-      Paint()
-        ..color = const Color(0xFF45647D)
+      capsule,
+      PinballStyle.metal(housing)
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 0.07,
+        ..strokeWidth = 0.16,
     );
-    final plungerTop = 43.85 + charge * 1.5;
-    final springTop = plungerTop + 0.22;
-    const springBottom = 46.2;
-    canvas.drawLine(
-      Offset(25, springTop),
-      const Offset(25, springBottom),
-      PinballStyle.metal(bounds)..strokeWidth = 0.14,
-    );
-    const turns = 7;
-    final coilHeight = (springBottom - springTop) / turns;
-    final spring = Path()..moveTo(25, springTop);
+    final springTop = housing.top + 0.35;
+    final knobTop = housing.bottom - 1.55 + charge * 1.0;
+    const turns = 8;
+    final coil = (knobTop - springTop) / turns;
+    final spring = Path()..moveTo(x, springTop);
     for (var turn = 0; turn < turns; turn++) {
       spring
-        ..lineTo(24.55, springTop + (turn + 0.25) * coilHeight)
-        ..lineTo(25.45, springTop + (turn + 0.75) * coilHeight);
+        ..lineTo(x - 0.62, springTop + (turn + 0.25) * coil)
+        ..lineTo(x + 0.62, springTop + (turn + 0.75) * coil);
     }
-    spring.lineTo(25, springBottom);
+    spring.lineTo(x, knobTop);
     canvas.drawPath(
       spring,
       Paint()
-        ..color = const Color(0xFFA3B3C9)
+        ..color = const Color(0xFFC9D3E6)
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 0.07,
-    );
-    final cap = Rect.fromLTWH(24.35, plungerTop - 0.22, 1.3, 0.44);
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(cap, const Radius.circular(0.12)),
-      PinballStyle.metal(cap),
-    );
-    const base = Rect.fromLTWH(24.35, springBottom, 1.3, 0.3);
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(base, const Radius.circular(0.1)),
-      PinballStyle.metal(base),
-    );
-    canvas.drawLine(
-      const Offset(24.4, 44),
-      const Offset(24.4, 38.4),
-      Paint()
-        ..color = PinballStyle.cyan.withValues(alpha: 0.25 + charge * 0.75)
         ..strokeWidth = 0.1,
+    );
+    final knob = Rect.fromLTWH(x - 0.6, knobTop, 1.2, 1.05);
+    canvas.drawRRect(
+      RRect.fromRectAndCorners(
+        knob,
+        topLeft: const Radius.circular(0.55),
+        topRight: const Radius.circular(0.55),
+        bottomLeft: const Radius.circular(0.12),
+        bottomRight: const Radius.circular(0.12),
+      ),
+      PinballStyle.metal(knob),
     );
   }
 }
@@ -1195,4 +1293,22 @@ class PulseRing extends PositionComponent {
         ..strokeWidth = 0.16,
     );
   }
+}
+
+void _drawGoldStud(Canvas canvas, Offset center, double radius) {
+  final bounds = Rect.fromCircle(center: center, radius: radius);
+  canvas.drawCircle(center, radius, PinballStyle.metal(bounds));
+  canvas.drawCircle(
+    center,
+    radius,
+    Paint()
+      ..color = const Color(0xFF5B421F)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = radius * 0.16,
+  );
+  canvas.drawCircle(
+    center - Offset(radius, radius) * 0.3,
+    radius * 0.25,
+    Paint()..color = Colors.white.withValues(alpha: 0.55),
+  );
 }

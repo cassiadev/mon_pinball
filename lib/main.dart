@@ -1,3 +1,6 @@
+import 'dart:math' as math;
+import 'dart:ui' as ui;
+
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
 
@@ -29,16 +32,6 @@ class MonPinballApp extends StatelessWidget {
         scaffoldBackgroundColor: PinballStyle.background,
         fontFamily: 'IBMPlexMono',
         fontFamilyFallback: const ['sans-serif'],
-        textButtonTheme: TextButtonThemeData(
-          style: TextButton.styleFrom(
-            foregroundColor: PinballStyle.text,
-            minimumSize: const Size(44, 44),
-            shape: RoundedRectangleBorder(
-              side: const BorderSide(color: PinballStyle.line),
-              borderRadius: BorderRadius.circular(6),
-            ),
-          ),
-        ),
       ),
       home: PinballScreen(gameFactory: gameFactory),
     );
@@ -60,79 +53,135 @@ class _PinballScreenState extends State<PinballScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final wide =
-                  constraints.maxWidth >= 700 ||
-                  constraints.maxWidth > constraints.maxHeight;
-              final sidebarWidth = (constraints.maxWidth * 0.4)
-                  .clamp(200.0, 280.0)
-                  .toDouble();
-              // Keep the GameWidget mounted when changing orientation. Only the
-              // Flex direction changes; input remains local to its viewport.
-              return Flex(
-                direction: wide ? Axis.horizontal : Axis.vertical,
-                textDirection: TextDirection.rtl,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  SizedBox(
-                    width: wide ? sidebarWidth : null,
-                    child: ConstrainedBox(
-                      // Large text can scroll without consuming the table.
-                      constraints: BoxConstraints(
-                        maxHeight: wide
-                            ? constraints.maxHeight
-                            : constraints.maxHeight * 0.42,
-                      ),
-                      child: SingleChildScrollView(
-                        child: _Dashboard(game: _game, wide: wide),
-                      ),
-                    ),
-                  ),
-                  SizedBox(width: wide ? 16 : 0, height: wide ? 0 : 8),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Expanded(
-                          child: Center(
-                            child: AspectRatio(
-                              aspectRatio:
-                                  MonPinballGame.boardWidth /
-                                  MonPinballGame.boardHeight,
-                              child: GameWidget<MonPinballGame>(
-                                game: _game,
-                                initialActiveOverlays: const ['hud'],
-                                overlayBuilderMap: {
-                                  'hud': (context, game) =>
-                                      PinballHud(game: game),
-                                },
-                              ),
-                            ),
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          _GardenBackdrop(game: _game),
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 6, 12, 4),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final wide =
+                      constraints.maxWidth >= 700 ||
+                      constraints.maxWidth > constraints.maxHeight;
+                  final sidebarWidth = (constraints.maxWidth * 0.4)
+                      .clamp(200.0, 280.0)
+                      .toDouble();
+                  // Keep the GameWidget mounted when changing orientation. Only
+                  // the Flex direction changes; input remains local to its
+                  // viewport.
+                  return Flex(
+                    direction: wide ? Axis.horizontal : Axis.vertical,
+                    textDirection: TextDirection.rtl,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      SizedBox(
+                        width: wide ? sidebarWidth : null,
+                        child: ConstrainedBox(
+                          // Large text can scroll without consuming the table.
+                          constraints: BoxConstraints(
+                            maxHeight: wide
+                                ? constraints.maxHeight
+                                : constraints.maxHeight * 0.42,
+                          ),
+                          child: SingleChildScrollView(
+                            child: _Dashboard(game: _game, wide: wide),
                           ),
                         ),
-                        if (!wide) ...[
-                          const SizedBox(height: 4),
-                          const _ControlsHint(compact: true),
-                        ],
-                      ],
-                    ),
-                  ),
-                ],
-              );
-            },
+                      ),
+                      SizedBox(width: wide ? 16 : 0, height: wide ? 0 : 2),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Expanded(
+                              child: Center(
+                                child: AspectRatio(
+                                  aspectRatio:
+                                      MonPinballGame.boardWidth /
+                                      MonPinballGame.boardHeight,
+                                  child: GameWidget<MonPinballGame>(
+                                    game: _game,
+                                    initialActiveOverlays: const ['hud'],
+                                    overlayBuilderMap: {
+                                      'hud': (context, game) =>
+                                          PinballHud(game: game),
+                                    },
+                                  ),
+                                ),
+                              ),
+                            ),
+                            if (!wide) _StatusLine(game: _game),
+                          ],
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
 }
 
-/// Routes touch input within the game viewport.
-/// Visible score and other instruments are rendered separately by [_Dashboard].
+/// The garden plate behind the whole screen; wisteria and lanterns frame the
+/// table as in the mockup. It reuses the texture the game already decoded.
+class _GardenBackdrop extends StatelessWidget {
+  const _GardenBackdrop({required this.game});
+
+  final MonPinballGame game;
+
+  static const _key = 'moonlit/garden.png';
+
+  @override
+  Widget build(BuildContext context) {
+    if (game.images.containsKey(_key)) {
+      return _paint(game.images.fromCache(_key));
+    }
+    return FutureBuilder<ui.Image>(
+      future: game.images.load(_key),
+      builder: (context, snapshot) => snapshot.hasData
+          ? _paint(snapshot.data!)
+          : const ColoredBox(color: PinballStyle.background),
+    );
+  }
+
+  Widget _paint(ui.Image image) =>
+      CustomPaint(painter: _BackdropPainter(image));
+}
+
+class _BackdropPainter extends CustomPainter {
+  const _BackdropPainter(this.image);
+
+  final ui.Image image;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final bounds = Offset.zero & size;
+    canvas.drawRect(bounds, Paint()..color = PinballStyle.background);
+    final source = Size(image.width.toDouble(), image.height.toDouble());
+    final fitted = applyBoxFit(BoxFit.cover, source, size);
+    canvas.drawImageRect(
+      image,
+      Alignment.center.inscribe(fitted.source, Offset.zero & source),
+      Alignment.center.inscribe(fitted.destination, bounds),
+      Paint()..filterQuality = FilterQuality.medium,
+    );
+    // Dim the plate so the header and board stay the brightest layer.
+    canvas.drawRect(bounds, Paint()..color = const Color(0x7A050817));
+  }
+
+  @override
+  bool shouldRepaint(_BackdropPainter oldDelegate) =>
+      image != oldDelegate.image;
+}
+
+/// Routes touch input within the game viewport and labels the controls on
+/// the table itself. Instruments are rendered separately by [_Dashboard].
 class PinballHud extends StatefulWidget {
   const PinballHud({required this.game, super.key});
 
@@ -150,16 +199,26 @@ class _PinballHudState extends State<PinballHud> {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        return Listener(
-          key: const ValueKey('pinball-input-surface'),
-          behavior: HitTestBehavior.translucent,
-          onPointerDown: (event) =>
-              _activatePointer(event.pointer, event.localPosition, constraints),
-          onPointerUp: (event) => _deactivatePointer(event.pointer),
-          onPointerCancel: (event) => _deactivatePointer(event.pointer),
-          onPointerMove: (event) =>
-              _updatePointer(event.pointer, event.localPosition),
-          child: const SizedBox.expand(),
+        return Stack(
+          children: [
+            Positioned.fill(child: _TableLabels(size: constraints.biggest)),
+            Positioned.fill(
+              child: Listener(
+                key: const ValueKey('pinball-input-surface'),
+                behavior: HitTestBehavior.translucent,
+                onPointerDown: (event) => _activatePointer(
+                  event.pointer,
+                  event.localPosition,
+                  constraints,
+                ),
+                onPointerUp: (event) => _deactivatePointer(event.pointer),
+                onPointerCancel: (event) => _deactivatePointer(event.pointer),
+                onPointerMove: (event) =>
+                    _updatePointer(event.pointer, event.localPosition),
+                child: const SizedBox.expand(),
+              ),
+            ),
+          ],
         );
       },
     );
@@ -240,6 +299,149 @@ class _LauncherDrag {
   final Offset startPosition;
 }
 
+/// Flipper and plunger captions printed on the table under each control.
+class _TableLabels extends StatelessWidget {
+  const _TableLabels({required this.size});
+
+  final Size size;
+
+  @override
+  Widget build(BuildContext context) {
+    final unit =
+        math.min(
+          size.width / MonPinballGame.boardWidth,
+          size.height / MonPinballGame.boardHeight,
+        ) *
+        MonPinballGame.boardFill;
+    final style = TextStyle(
+      fontSize: unit * 0.78,
+      height: 1.15,
+      color: PinballStyle.text.withValues(alpha: 0.9),
+      shadows: const [Shadow(color: Colors.black, blurRadius: 3)],
+    );
+    Widget caption(Offset board, Widget child) {
+      final at = MonPinballGame.boardToViewport(board, size);
+      return Positioned(
+        left: at.dx - unit * 4,
+        top: at.dy,
+        width: unit * 8,
+        child: Center(child: child),
+      );
+    }
+
+    Widget arrow(AxisDirection direction) => Padding(
+      padding: EdgeInsets.symmetric(horizontal: unit * 0.2),
+      child: CustomPaint(
+        size: Size.square(unit * 0.8),
+        painter: _ArrowBadgePainter(direction),
+      ),
+    );
+
+    return IgnorePointer(
+      child: MediaQuery.withClampedTextScaling(
+        maxScaleFactor: 1.2,
+        child: ExcludeSemantics(
+          child: Stack(
+            key: const ValueKey('pinball-controls-hint'),
+            children: [
+              caption(
+                const Offset(8.3, 53.95),
+                Column(
+                  children: [
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        arrow(AxisDirection.left),
+                        Text('왼쪽', style: style),
+                      ],
+                    ),
+                    Text('플리퍼', style: style),
+                  ],
+                ),
+              ),
+              caption(
+                const Offset(19.7, 53.95),
+                Column(
+                  children: [
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text('오른쪽', style: style),
+                        arrow(AxisDirection.right),
+                      ],
+                    ),
+                    Text('플리퍼', style: style),
+                  ],
+                ),
+              ),
+              caption(
+                Offset(
+                  MonPinballGame.launchLane.center.dx - 0.45,
+                  MonPinballGame.launchLane.bottom + 5.9,
+                ),
+                Column(
+                  children: [
+                    arrow(AxisDirection.up),
+                    Text('당겨서 발사', style: style, softWrap: false),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ArrowBadgePainter extends CustomPainter {
+  const _ArrowBadgePainter(this.direction);
+
+  final AxisDirection direction;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final c = size.center(Offset.zero);
+    final r = size.shortestSide / 2;
+    if (direction != AxisDirection.up) {
+      canvas.drawCircle(c, r, Paint()..color = const Color(0xFFB8A6F2));
+    }
+    final s = direction == AxisDirection.up ? r * 0.8 : r * 0.5;
+    final (tip, base1, base2) = switch (direction) {
+      AxisDirection.left => (
+        c + Offset(-s, 0),
+        c + Offset(s * 0.8, -s),
+        c + Offset(s * 0.8, s),
+      ),
+      AxisDirection.right => (
+        c + Offset(s, 0),
+        c + Offset(-s * 0.8, -s),
+        c + Offset(-s * 0.8, s),
+      ),
+      _ => (
+        c + Offset(0, -s),
+        c + Offset(-s * 1.1, s * 0.7),
+        c + Offset(s * 1.1, s * 0.7),
+      ),
+    };
+    canvas.drawPath(
+      Path()
+        ..moveTo(tip.dx, tip.dy)
+        ..lineTo(base1.dx, base1.dy)
+        ..lineTo(base2.dx, base2.dy)
+        ..close(),
+      Paint()
+        ..color = direction == AxisDirection.up
+            ? PinballStyle.text
+            : const Color(0xFF1B1835),
+    );
+  }
+
+  @override
+  bool shouldRepaint(_ArrowBadgePainter oldDelegate) =>
+      direction != oldDelegate.direction;
+}
+
 class _Dashboard extends StatelessWidget {
   const _Dashboard({required this.game, required this.wide});
 
@@ -250,172 +452,17 @@ class _Dashboard extends StatelessWidget {
   Widget build(BuildContext context) {
     return ValueListenableBuilder<PinballSnapshot>(
       valueListenable: game.hud,
-      builder: (context, snapshot, _) {
-        if (!wide) {
-          return _CompactDashboard(game: game, snapshot: snapshot);
-        }
-        final score = Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const _InstrumentLabel('SCORE · 점수'),
-            const SizedBox(height: 8),
-            DecoratedBox(
-              decoration: BoxDecoration(
-                color: PinballStyle.panel,
-                borderRadius: BorderRadius.circular(4),
-                border: Border.all(color: PinballStyle.line),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 8,
-                  vertical: 10,
-                ),
-                child: DotMatrixScore(
-                  key: const ValueKey('pinball-score'),
-                  score: snapshot.score,
-                ),
-              ),
-            ),
-          ],
-        );
-        final lives = Semantics(
-          label: '남은 공 ${snapshot.lives}',
-          excludeSemantics: true,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const _InstrumentLabel('남은 공'),
-              const SizedBox(height: 4),
-              Text(
-                snapshot.lives.toString().padLeft(2, '0'),
-                key: const ValueKey('pinball-lives'),
-                style: TextStyle(
-                  fontSize: 30,
-                  height: 1.25,
-                  fontWeight: FontWeight.w500,
-                  color: snapshot.gameOver
-                      ? PinballStyle.coral
-                      : PinballStyle.text,
-                ),
-              ),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: List.generate(
-                  3,
-                  (index) => Padding(
-                    padding: const EdgeInsets.only(right: 5, top: 4),
-                    child: SizedBox.square(
-                      dimension: 8,
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: index < snapshot.lives
-                              ? PinballStyle.chrome
-                              : PinballStyle.line,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              children: [
-                const Expanded(
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      'MON PINBALL',
-                      style: TextStyle(
-                        fontFamily: 'Rajdhani',
-                        fontSize: 28,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 1.2,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                TextButton(
-                  key: const ValueKey('pinball-restart'),
-                  onPressed: game.restartGame,
-                  child: const Text('다시 시작'),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            _InstrumentPanel(child: score),
-            const SizedBox(height: 12),
-            _InstrumentPanel(child: lives),
-            const SizedBox(height: 12),
-            _InstrumentPanel(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Row(
-                    children: [
-                      const Expanded(child: _InstrumentLabel('발사 충전')),
-                      Text(
-                        '${(snapshot.launchCharge * 100).round()}%',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: PinballStyle.cyan,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  LinearProgressIndicator(
-                    key: const ValueKey('pinball-launch-charge'),
-                    value: snapshot.launchCharge,
-                    minHeight: 5,
-                    backgroundColor: PinballStyle.line,
-                    color: PinballStyle.cyan,
-                    semanticsLabel: '발사 충전',
-                    semanticsValue: '${(snapshot.launchCharge * 100).round()}%',
-                    borderRadius: BorderRadius.circular(3),
-                  ),
-                  const SizedBox(height: 12),
-                  Semantics(
-                    liveRegion: true,
-                    child: Text(
-                      snapshot.status,
-                      key: const ValueKey('pinball-status'),
-                      style: TextStyle(
-                        fontSize: 14,
-                        height: 1.5,
-                        color: snapshot.gameOver
-                            ? PinballStyle.coral
-                            : PinballStyle.text,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 12),
-            _InstrumentPanel(child: _BossHealth(snapshot: snapshot)),
-            const SizedBox(height: 16),
-            const _ControlsHint(compact: false),
-          ],
-        );
-      },
+      builder: (context, snapshot, _) => wide
+          ? _Sidebar(game: game, snapshot: snapshot)
+          : _MoonlitHeader(game: game, snapshot: snapshot),
     );
   }
 }
 
-class _CompactDashboard extends StatelessWidget {
-  const _CompactDashboard({required this.game, required this.snapshot});
+/// Portrait header from the mockup: title, score and restart; balls and
+/// combo; then the boss's remaining health.
+class _MoonlitHeader extends StatelessWidget {
+  const _MoonlitHeader({required this.game, required this.snapshot});
 
   final MonPinballGame game;
   final PinballSnapshot snapshot;
@@ -428,125 +475,316 @@ class _CompactDashboard extends StatelessWidget {
       children: [
         Row(
           children: [
+            const Flexible(
+              flex: 5,
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: _TitleMark(compact: true),
+              ),
+            ),
+            const _Divider(height: 34),
+            Expanded(flex: 4, child: _ScoreReadout(snapshot: snapshot)),
+            const SizedBox(width: 8),
+            _RestartButton(onPressed: game.restartGame),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Row(
+          children: [
+            const SizedBox(width: 6),
+            _Lives(snapshot: snapshot),
+            const Spacer(),
+            _ComboBadge(snapshot: snapshot),
+            const SizedBox(width: 6),
+          ],
+        ),
+        const SizedBox(height: 4),
+        _BossHealth(snapshot: snapshot),
+      ],
+    );
+  }
+}
+
+class _Sidebar extends StatelessWidget {
+  const _Sidebar({required this.game, required this.snapshot});
+
+  final MonPinballGame game;
+  final PinballSnapshot snapshot;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          children: [
             const Expanded(
               child: FittedBox(
                 fit: BoxFit.scaleDown,
                 alignment: Alignment.centerLeft,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      'MON PINBALL',
-                      style: TextStyle(
-                        fontFamily: 'Rajdhani',
-                        fontSize: 20,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 1,
-                      ),
-                    ),
-                    Text(
-                      '달빛 정원',
-                      style: TextStyle(fontSize: 10, color: PinballStyle.muted),
-                    ),
-                  ],
-                ),
+                child: _TitleMark(compact: false),
               ),
             ),
             const SizedBox(width: 8),
-            Semantics(
-              label: '남은 공 ${snapshot.lives}',
-              excludeSemantics: true,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text(
-                    '공',
-                    style: TextStyle(fontSize: 12, color: PinballStyle.muted),
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    snapshot.lives.toString().padLeft(2, '0'),
-                    key: const ValueKey('pinball-lives'),
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: snapshot.gameOver
-                          ? PinballStyle.coral
-                          : PinballStyle.text,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            TextButton(
-              key: const ValueKey('pinball-restart'),
-              onPressed: game.restartGame,
-              child: const Text('다시 시작', style: TextStyle(fontSize: 12)),
-            ),
+            _RestartButton(onPressed: game.restartGame),
           ],
         ),
-        const SizedBox(height: 4),
-        DecoratedBox(
-          decoration: BoxDecoration(
-            color: PinballStyle.panel,
-            borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: PinballStyle.line),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-            child: SizedBox(
-              height: 32,
-              child: DotMatrixScore(
-                key: const ValueKey('pinball-score'),
-                score: snapshot.score,
-              ),
-            ),
+        const SizedBox(height: 12),
+        _InstrumentPanel(child: _ScoreReadout(snapshot: snapshot, height: 34)),
+        const SizedBox(height: 12),
+        _InstrumentPanel(
+          child: Row(
+            children: [
+              _Lives(snapshot: snapshot),
+              const Spacer(),
+              _ComboBadge(snapshot: snapshot),
+            ],
           ),
         ),
-        const SizedBox(height: 6),
-        _BossHealth(snapshot: snapshot),
-        const SizedBox(height: 6),
-        Row(
+        const SizedBox(height: 12),
+        _InstrumentPanel(child: _BossHealth(snapshot: snapshot)),
+        const SizedBox(height: 12),
+        _InstrumentPanel(
+          child: _StatusLine(game: game, snapshot: snapshot),
+        ),
+        const SizedBox(height: 12),
+        const _ControlsList(),
+      ],
+    );
+  }
+}
+
+class _TitleMark extends StatelessWidget {
+  const _TitleMark({required this.compact});
+
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        CrescentMark(size: compact ? 26 : 30),
+        const SizedBox(width: 8),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Expanded(
-              child: Semantics(
-                liveRegion: true,
-                child: Text(
-                  snapshot.status,
-                  key: const ValueKey('pinball-status'),
-                  style: TextStyle(
-                    fontSize: 12,
-                    height: 1.4,
-                    color: snapshot.gameOver
-                        ? PinballStyle.coral
-                        : PinballStyle.muted,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            SizedBox(
-              width: 48,
-              child: LinearProgressIndicator(
-                key: const ValueKey('pinball-launch-charge'),
-                value: snapshot.launchCharge,
-                minHeight: 3,
-                backgroundColor: PinballStyle.line,
-                color: PinballStyle.cyan,
-                semanticsLabel: '발사 충전',
-                semanticsValue: '${(snapshot.launchCharge * 100).round()}%',
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const SizedBox(width: 6),
             Text(
-              '${(snapshot.launchCharge * 100).round()}%',
-              style: const TextStyle(fontSize: 11, color: PinballStyle.cyan),
+              'MON PINBALL',
+              style: TextStyle(
+                fontFamily: 'Rajdhani',
+                fontSize: compact ? 19 : 26,
+                fontWeight: FontWeight.w600,
+                letterSpacing: compact ? 2.2 : 2.6,
+                height: 1.1,
+                color: PinballStyle.text,
+              ),
+            ),
+            Text(
+              '달빛 정원',
+              style: TextStyle(
+                fontSize: compact ? 11 : 13,
+                letterSpacing: 4,
+                height: 1.3,
+                color: const Color(0xFFC9B5F5),
+              ),
             ),
           ],
         ),
       ],
+    );
+  }
+}
+
+class _ScoreReadout extends StatelessWidget {
+  const _ScoreReadout({required this.snapshot, this.height = 21});
+
+  final PinballSnapshot snapshot;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          '점수',
+          style: TextStyle(
+            fontSize: 10,
+            height: 1.3,
+            color: PinballStyle.muted,
+          ),
+        ),
+        SizedBox(
+          height: height,
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: DotMatrixScore(
+              key: const ValueKey('pinball-score'),
+              score: snapshot.score,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _RestartButton extends StatelessWidget {
+  const _RestartButton({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextButton(
+      key: const ValueKey('pinball-restart'),
+      onPressed: onPressed,
+      style: TextButton.styleFrom(
+        foregroundColor: PinballStyle.text,
+        minimumSize: const Size(44, 44),
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        backgroundColor: const Color(0xCC0B0E26),
+        shape: RoundedRectangleBorder(
+          side: const BorderSide(color: PinballStyle.gold, width: 1.2),
+          borderRadius: BorderRadius.circular(8),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const CustomPaint(size: Size.square(15), painter: _ReplayPainter()),
+          const SizedBox(width: 6),
+          const Text('다시 시작', style: TextStyle(fontSize: 12)),
+        ],
+      ),
+    );
+  }
+}
+
+class _ReplayPainter extends CustomPainter {
+  const _ReplayPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final c = size.center(Offset.zero);
+    final r = size.shortestSide * 0.38;
+    final stroke = Paint()
+      ..color = PinballStyle.text
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.8
+      ..strokeCap = StrokeCap.round;
+    canvas.drawArc(
+      Rect.fromCircle(center: c, radius: r),
+      -math.pi * 0.35,
+      math.pi * 1.6,
+      false,
+      stroke,
+    );
+    final head =
+        c + Offset(math.cos(-math.pi * 0.35), math.sin(-math.pi * 0.35)) * r;
+    canvas.drawPath(
+      Path()
+        ..moveTo(head.dx + 2.6, head.dy - 3.2)
+        ..lineTo(head.dx + 2.2, head.dy + 1.2)
+        ..lineTo(head.dx - 2, head.dy - 0.4)
+        ..close(),
+      Paint()..color = PinballStyle.text,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_ReplayPainter oldDelegate) => false;
+}
+
+class _Lives extends StatelessWidget {
+  const _Lives({required this.snapshot});
+
+  final PinballSnapshot snapshot;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: '남은 공 ${snapshot.lives}',
+      excludeSemantics: true,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            '공',
+            style: TextStyle(
+              fontSize: 13,
+              color: snapshot.gameOver ? PinballStyle.coral : PinballStyle.text,
+            ),
+          ),
+          const SizedBox(width: 10),
+          LivesIndicator(
+            key: const ValueKey('pinball-lives'),
+            lives: snapshot.lives,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The combo count in a lilac ring; screen readers get it from the boss bar.
+class _ComboBadge extends StatelessWidget {
+  const _ComboBadge({required this.snapshot});
+
+  final PinballSnapshot snapshot;
+
+  @override
+  Widget build(BuildContext context) {
+    return ExcludeSemantics(
+      child: Row(
+        key: const ValueKey('pinball-combo'),
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
+            padding: const EdgeInsets.symmetric(horizontal: 5),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              shape: BoxShape.rectangle,
+              borderRadius: BorderRadius.circular(13),
+              border: Border.all(color: PinballStyle.pink, width: 1.6),
+              color: const Color(0xCC1A1036),
+              boxShadow: [
+                BoxShadow(
+                  color: PinballStyle.pink.withValues(alpha: 0.35),
+                  blurRadius: 6,
+                ),
+              ],
+            ),
+            child: Text(
+              '${snapshot.combo}',
+              style: const TextStyle(
+                fontSize: 13,
+                height: 1,
+                color: Color(0xFFF2B8E4),
+              ),
+            ),
+          ),
+          const SizedBox(width: 7),
+          Text(
+            snapshot.bossDefeated ? '격파' : 'COMBO',
+            style: TextStyle(
+              fontFamily: 'Rajdhani',
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 1.6,
+              color: snapshot.bossDefeated
+                  ? PinballStyle.gold
+                  : PinballStyle.muted,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -565,44 +803,156 @@ class _BossHealth extends StatelessWidget {
       label: '츠키비나 남은 체력 ${snapshot.bossHealth} / ${snapshot.bossMaxHealth}',
       value: '${snapshot.combo} 콤보${snapshot.bossDefeated ? ', 격파' : ''}',
       excludeSemantics: true,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+      child: Row(
         children: [
-          Row(
-            children: [
-              const Expanded(
-                child: Text(
-                  '츠키비나 · 남은 체력',
-                  style: TextStyle(fontSize: 11, color: PinballStyle.muted),
+          const _Ornament(),
+          const SizedBox(width: 6),
+          const Text(
+            '츠키비나',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: PinballStyle.text,
+            ),
+          ),
+          const _Divider(height: 14),
+          const Text(
+            '남은 체력',
+            style: TextStyle(fontSize: 10, color: PinballStyle.muted),
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Container(
+              height: 11,
+              padding: const EdgeInsets.all(1.5),
+              decoration: BoxDecoration(
+                color: const Color(0xE6090C22),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(
+                  color: PinballStyle.gold.withValues(alpha: 0.75),
                 ),
               ),
-              const SizedBox(width: 8),
-              Text(
-                snapshot.bossDefeated ? '격파' : '${snapshot.combo} COMBO',
-                key: const ValueKey('pinball-combo'),
-                style: TextStyle(
-                  fontSize: 11,
-                  color: snapshot.bossDefeated
-                      ? PinballStyle.gold
-                      : PinballStyle.text,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: ShaderMask(
+                  blendMode: BlendMode.srcIn,
+                  shaderCallback: (bounds) => LinearGradient(
+                    colors: snapshot.bossDefeated
+                        ? const [PinballStyle.gold, PinballStyle.gold]
+                        : const [Color(0xFF9B7CF2), PinballStyle.pink],
+                  ).createShader(bounds),
+                  child: LinearProgressIndicator(
+                    key: const ValueKey('pinball-boss-health'),
+                    value: remaining,
+                    minHeight: 8,
+                    color: Colors.white,
+                    backgroundColor: Colors.transparent,
+                  ),
                 ),
               ),
-            ],
+            ),
           ),
-          const SizedBox(height: 3),
-          LinearProgressIndicator(
-            key: const ValueKey('pinball-boss-health'),
-            value: remaining,
-            minHeight: 4,
-            color: snapshot.bossDefeated
-                ? PinballStyle.gold
-                : PinballStyle.violet,
-            backgroundColor: PinballStyle.line.withValues(alpha: 0.4),
-            borderRadius: BorderRadius.circular(3),
-          ),
+          const SizedBox(width: 6),
+          const _Ornament(),
         ],
       ),
+    );
+  }
+}
+
+class _Ornament extends StatelessWidget {
+  const _Ornament();
+
+  @override
+  Widget build(BuildContext context) {
+    return Transform.rotate(
+      angle: math.pi / 4,
+      child: Container(
+        width: 7,
+        height: 7,
+        decoration: BoxDecoration(
+          color: PinballStyle.gold,
+          border: Border.all(color: const Color(0xFF6E5428), width: 0.8),
+        ),
+      ),
+    );
+  }
+}
+
+class _Divider extends StatelessWidget {
+  const _Divider({required this.height});
+
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 1,
+      height: height,
+      margin: const EdgeInsets.symmetric(horizontal: 9),
+      color: PinballStyle.line,
+    );
+  }
+}
+
+/// Live status and launch charge; under the table in portrait.
+class _StatusLine extends StatelessWidget {
+  const _StatusLine({required this.game, this.snapshot});
+
+  final MonPinballGame game;
+  final PinballSnapshot? snapshot;
+
+  @override
+  Widget build(BuildContext context) {
+    final current = snapshot;
+    if (current == null) {
+      return ValueListenableBuilder<PinballSnapshot>(
+        valueListenable: game.hud,
+        builder: (context, value, _) => Padding(
+          padding: const EdgeInsets.fromLTRB(8, 2, 8, 0),
+          child: _StatusLine(game: game, snapshot: value),
+        ),
+      );
+    }
+    final percent = '${(current.launchCharge * 100).round()}%';
+    return Row(
+      children: [
+        Expanded(
+          child: Semantics(
+            liveRegion: true,
+            child: Text(
+              current.status,
+              key: const ValueKey('pinball-status'),
+              style: TextStyle(
+                fontSize: 11,
+                height: 1.35,
+                color: current.gameOver
+                    ? PinballStyle.coral
+                    : PinballStyle.muted,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        SizedBox(
+          width: 44,
+          child: LinearProgressIndicator(
+            key: const ValueKey('pinball-launch-charge'),
+            value: current.launchCharge,
+            minHeight: 3,
+            backgroundColor: PinballStyle.line,
+            color: PinballStyle.cyan,
+            semanticsLabel: '발사 충전',
+            semanticsValue: percent,
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+        const SizedBox(width: 6),
+        Text(
+          percent,
+          style: const TextStyle(fontSize: 11, color: PinballStyle.cyan),
+        ),
+      ],
     );
   }
 }
@@ -616,7 +966,7 @@ class _InstrumentPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: PinballStyle.panel,
+        color: PinballStyle.panel.withValues(alpha: 0.88),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: PinballStyle.line),
       ),
@@ -625,99 +975,66 @@ class _InstrumentPanel extends StatelessWidget {
   }
 }
 
-class _InstrumentLabel extends StatelessWidget {
-  const _InstrumentLabel(this.text);
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      text,
-      style: const TextStyle(
-        fontSize: 12,
-        height: 1.4,
-        color: PinballStyle.muted,
-      ),
-    );
-  }
-}
-
-class _ControlsHint extends StatelessWidget {
-  const _ControlsHint({required this.compact});
-
-  final bool compact;
+class _ControlsList extends StatelessWidget {
+  const _ControlsList();
 
   @override
   Widget build(BuildContext context) {
     return IgnorePointer(
-      child: compact
-          ? const Row(
-              key: ValueKey('pinball-controls-hint'),
-              children: [
-                Expanded(
-                  child: Text(
-                    '왼쪽 · 플리퍼',
-                    style: TextStyle(fontSize: 12, color: PinballStyle.muted),
-                  ),
-                ),
-                Expanded(
-                  child: Text(
-                    '오른쪽 · 플리퍼',
-                    textAlign: TextAlign.right,
-                    style: TextStyle(fontSize: 12, color: PinballStyle.muted),
-                  ),
-                ),
-              ],
-            )
-          : _InstrumentPanel(
-              child: Column(
-                key: const ValueKey('pinball-controls-hint'),
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const _InstrumentLabel('FLIGHT CONTROLS'),
-                  const SizedBox(height: 12),
-                  for (final control in const [
-                    ('A / ←', '왼쪽 플리퍼'),
-                    ('D / →', '오른쪽 플리퍼'),
-                    ('Space / ↓', '충전 · 발사'),
-                    ('W / ↑', '테이블 넛지'),
-                    ('R', '다시 시작'),
-                  ])
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 6),
-                      child: Row(
-                        children: [
-                          SizedBox(
-                            width: 104,
-                            child: Text(
-                              control.$1,
-                              style: const TextStyle(
-                                fontSize: 13,
-                                color: PinballStyle.chrome,
-                              ),
-                            ),
-                          ),
-                          Expanded(
-                            child: Text(
-                              control.$2,
-                              style: const TextStyle(
-                                fontSize: 13,
-                                color: PinballStyle.muted,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    '발사 레인을 아래로 당겼다 놓으세요.',
-                    style: TextStyle(fontSize: 14, height: 1.6),
-                  ),
-                ],
+      child: _InstrumentPanel(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text(
+              'FLIGHT CONTROLS',
+              style: TextStyle(
+                fontSize: 12,
+                height: 1.4,
+                color: PinballStyle.muted,
               ),
             ),
+            const SizedBox(height: 12),
+            for (final control in const [
+              ('A / ←', '왼쪽 플리퍼'),
+              ('D / →', '오른쪽 플리퍼'),
+              ('Space / ↓', '충전 · 발사'),
+              ('W / ↑', '테이블 넛지'),
+              ('R', '다시 시작'),
+            ])
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: 104,
+                      child: Text(
+                        control.$1,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: PinballStyle.chrome,
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: Text(
+                        control.$2,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: PinballStyle.muted,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            const SizedBox(height: 8),
+            const Text(
+              '발사 레인을 아래로 당겼다 놓으세요.',
+              style: TextStyle(fontSize: 14, height: 1.6),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

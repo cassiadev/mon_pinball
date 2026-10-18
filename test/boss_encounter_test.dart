@@ -56,21 +56,21 @@ void main() {
 
   test('misses and ball-radius edge contacts use the moving weak point', () {
     final boss = BossEncounter()..start();
-    expect(boss.checkHit(Vector2(2, 12), Vector2(26, 12)), 0);
-    expect(
-      boss.checkHit(Vector2(2, 12), Vector2(26, 12), ballRadius: 0.7),
-      1280,
-    );
+    final y = boss.position.y + 2;
+    expect(boss.checkHit(Vector2(2, y), Vector2(26, y)), 0);
+    expect(boss.checkHit(Vector2(2, y), Vector2(26, y), ballRadius: 0.7), 1280);
   });
 
   test('swept hits include movement of the boss past a stationary ball', () {
+    // The flight path's left and right extremes straddle a centred ball.
     final boss = BossEncounter()..update(8.57);
-    final ball = Vector2(14, 10);
-    expect(boss.position.distanceTo(ball), greaterThan(1.9));
+    final ball = Vector2(14, 8.6);
+    const reach = 1.35 + 0.1;
+    expect(boss.position.distanceTo(ball), greaterThan(reach));
     boss.start();
     boss.update(5.71);
-    expect(boss.position.distanceTo(ball), greaterThan(1.9));
-    expect(boss.checkHit(ball, ball), 1280);
+    expect(boss.position.distanceTo(ball), greaterThan(reach));
+    expect(boss.checkHit(ball, ball, ballRadius: 0.1), 1280);
   });
 
   test('pause clears petals and collision latch while preserving health', () {
@@ -118,7 +118,7 @@ void main() {
     expect(boss.active, isFalse);
     expect(boss.elapsed, 0);
     expect(boss.position.x, 14);
-    expect(boss.position.y, 10);
+    expect(boss.position.y, closeTo(8.6, 1e-6));
     expect(boss.motion, BossMotion.idle);
     boss.start();
     expect(boss.checkHit(boss.position, boss.position), 1280);
@@ -175,8 +175,8 @@ void main() {
     expect(boss.petals.length, lessThanOrEqualTo(28));
     for (var tick = 0; tick < 100; tick++) {
       boss.update(0.2);
-      expect(boss.position.x, inInclusiveRange(11.8, 16.2));
-      expect(boss.position.y, inInclusiveRange(9.35, 10.65));
+      expect(boss.position.x, inInclusiveRange(12.39, 15.61));
+      expect(boss.position.y, inInclusiveRange(7.99, 9.21));
     }
   });
 

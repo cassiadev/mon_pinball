@@ -5,10 +5,84 @@ import 'package:flame/components.dart';
 import 'package:flame/flame.dart';
 
 import 'boss_encounter.dart';
+import 'moonlit_table.dart';
+
+/// One articulated atlas cell placed at its own uniform scale.
+///
+/// [pivot] is in atlas-cell pixels and lands on [attachment], in board units
+/// relative to the brooch. Every part keeps its drawn aspect ratio; only the
+/// whole figure breathes, so no part is ever squashed on one axis.
+class _Rig {
+  const _Rig({
+    required this.cell,
+    required this.pivot,
+    required this.unitsPerPixel,
+    required this.attachment,
+    this.restAngle = 0,
+    this.crop = const Rect.fromLTWH(0, 0, 512, 512),
+  });
+
+  final int cell;
+  final Offset pivot;
+  final double unitsPerPixel;
+  final Offset attachment;
+  final double restAngle;
+  final Rect crop;
+}
 
 /// Articulated atlas parts drawn in board coordinates around the weak point.
+///
+/// The figure sits beneath the physical obstacles so jewels, targets and the
+/// ball always read on top of her, as in the approved mockup.
 class MoonlitBoss extends Component {
-  MoonlitBoss(this.encounter) : super(priority: 30);
+  MoonlitBoss(this.encounter) : super(priority: -20);
+
+  // Measured from the atlas: wing roots, shoulder seams, the skirt waistband
+  // and the brooch, composed to the final floating-boss mockup.
+  static const _leftWing = _Rig(
+    cell: 1,
+    pivot: Offset(395, 378),
+    unitsPerPixel: 0.0225,
+    attachment: Offset(-1.4, -1),
+    restAngle: -0.08,
+  );
+  static const _rightWing = _Rig(
+    cell: 2,
+    pivot: Offset(65, 378),
+    unitsPerPixel: 0.0225,
+    attachment: Offset(1.4, -1),
+    restAngle: 0.08,
+  );
+  // The hem crosses its nominal cell edge: crop it out of the right sleeve
+  // and include its left edge here.
+  static const _skirt = _Rig(
+    cell: 5,
+    pivot: Offset(215, 110),
+    unitsPerPixel: 0.029,
+    attachment: Offset(0, 0.7),
+    crop: Rect.fromLTWH(-48, 0, 560, 512),
+  );
+  static const _body = _Rig(
+    cell: 0,
+    pivot: Offset(273, 253),
+    unitsPerPixel: 0.031,
+    attachment: Offset.zero,
+  );
+  static const _leftSleeve = _Rig(
+    cell: 3,
+    pivot: Offset(430, 40),
+    unitsPerPixel: 0.0235,
+    attachment: Offset(-2.1, -1.9),
+    restAngle: 0.26,
+  );
+  static const _rightSleeve = _Rig(
+    cell: 4,
+    pivot: Offset(48, 40),
+    unitsPerPixel: 0.0235,
+    attachment: Offset(2.1, -1.9),
+    restAngle: -0.26,
+    crop: Rect.fromLTWH(0, 0, 448, 512),
+  );
 
   final BossEncounter encounter;
   Image? _atlas;
@@ -33,152 +107,110 @@ class MoonlitBoss extends Component {
     final center = encounter.position;
 
     canvas.save();
+    canvas.clipRRect(MoonlitTable.playfield);
     canvas.translate(center.x, center.y);
     // All body motion pivots on the atlas brooch, never on a bounding-box center.
-    canvas.rotate(drift * 0.045 + hurt * 0.13);
-    final recoil = 1 - hurt * 0.055;
+    canvas.rotate(drift * 0.03 + hurt * 0.1);
+    final recoil = 1 - hurt * 0.05;
     final defeatScale = encounter.defeated ? 0.94 : 1.0;
-    canvas.scale(
-      (1 + breath * 0.012) * recoil * defeatScale,
-      (1 + breath * 0.018) * recoil * defeatScale,
-    );
+    final size = (1 + breath * 0.012) * recoil * defeatScale;
+    canvas.scale(size, size);
 
-    final wing = breath * 0.065 + opening * 0.25 - hurt * 0.2;
-    _part(
-      canvas,
-      atlas,
-      1,
-      const Offset(393, 376),
-      const Size(10.5, 8.2),
-      const Offset(-1.3, -1),
-      wing + 0.035 * drift,
-      0.72 * fade,
-    );
-    _part(
-      canvas,
-      atlas,
-      2,
-      const Offset(66, 376),
-      const Size(10.5, 8.2),
-      const Offset(1.3, -1),
-      -wing + 0.035 * drift,
-      0.72 * fade,
-    );
-
+    final wing = breath * 0.06 + opening * 0.22 - hurt * 0.18;
+    _part(canvas, atlas, _leftWing, -wing + 0.03 * drift, 0.94 * fade);
+    _part(canvas, atlas, _rightWing, wing + 0.03 * drift, 0.94 * fade);
     // The trailing fabric lags behind both flight and the attack gesture.
     _part(
       canvas,
       atlas,
-      5,
-      const Offset(256, 50),
-      const Size(15, 10),
-      const Offset(0, 2),
-      math.sin(time * 2.1 - 0.7) * 0.04 + drift * 0.025,
-      0.30 * fade,
-    );
-    final sleeve = math.sin(time * 2.1 - 0.4) * 0.045 + opening * 0.3;
-    _part(
-      canvas,
-      atlas,
-      3,
-      const Offset(432, 34),
-      const Size(10, 10),
-      const Offset(-1.3, -0.8),
-      sleeve + hurt * 0.16,
-      0.40 * fade,
-    );
-    _part(
-      canvas,
-      atlas,
-      4,
-      const Offset(60, 28),
-      const Size(10, 10),
-      const Offset(1.3, -0.8),
-      -sleeve - hurt * 0.16,
-      0.40 * fade,
-    );
-    _part(
-      canvas,
-      atlas,
-      0,
-      const Offset(273, 253),
-      const Size(8, 13),
-      Offset.zero,
-      0,
+      _skirt,
+      math.sin(time * 2.1 - 0.7) * 0.03 + drift * 0.02,
       fade,
     );
+    _part(canvas, atlas, _body, 0, fade);
+    final sleeve = math.sin(time * 2.1 - 0.4) * 0.04 + opening * 0.26;
+    _part(canvas, atlas, _leftSleeve, sleeve - hurt * 0.14, fade);
+    _part(canvas, atlas, _rightSleeve, -sleeve + hurt * 0.14, fade);
     canvas.restore();
-    _renderPetals(canvas);
-  }
-
-  void _renderPetals(Canvas canvas) {
-    final shape = Path()
-      ..moveTo(0.3, 0)
-      ..cubicTo(0.04, -0.19, -0.23, -0.18, -0.25, 0)
-      ..cubicTo(-0.23, 0.18, 0.04, 0.19, 0.3, 0)
-      ..close();
-    for (final petal in encounter.petals) {
-      // Keep decorative projectiles out of the lower flipper approach.
-      if (petal.y > 35) continue;
-      final opacity = ((6 - petal.age) / 0.8).clamp(0.0, 0.85);
-      canvas.save();
-      canvas.translate(petal.x, petal.y);
-      canvas.rotate(petal.angle);
-      canvas.drawLine(
-        const Offset(-0.85, 0),
-        const Offset(-0.22, 0),
-        Paint()
-          ..color = Color.fromRGBO(171, 132, 208, opacity * 0.4)
-          ..strokeWidth = 0.045
-          ..strokeCap = StrokeCap.round,
-      );
-      canvas.drawPath(
-        shape,
-        Paint()..color = Color.fromRGBO(218, 184, 239, opacity),
-      );
-      canvas.drawPath(
-        shape,
-        Paint()
-          ..color = Color.fromRGBO(151, 102, 183, opacity)
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 0.035,
-      );
-      canvas.restore();
-    }
   }
 
   void _part(
     Canvas canvas,
     Image atlas,
-    int cell,
-    Offset pivot,
-    Size size,
-    Offset attachment,
+    _Rig rig,
     double angle,
     double opacity,
   ) {
     canvas.save();
-    canvas.translate(attachment.dx, attachment.dy);
-    canvas.rotate(angle);
+    canvas.translate(rig.attachment.dx, rig.attachment.dy);
+    canvas.rotate(rig.restAngle + angle);
     _paint.color = Color.fromRGBO(255, 255, 255, opacity);
-    // The hem crosses its nominal cell edge. Crop it out of the sleeve and
-    // include its left edge in the hem, retaining the original waist pivot.
-    final crop = switch (cell) {
-      4 => const Rect.fromLTWH(0, 0, 448, 512),
-      5 => const Rect.fromLTWH(-48, 0, 560, 512),
-      _ => const Rect.fromLTWH(0, 0, 512, 512),
-    };
+    final scale = rig.unitsPerPixel;
     canvas.drawImageRect(
       atlas,
-      crop.shift(Offset((cell % 3) * 512.0, (cell ~/ 3) * 512.0)),
+      rig.crop.shift(Offset((rig.cell % 3) * 512.0, (rig.cell ~/ 3) * 512.0)),
       Rect.fromLTWH(
-        (crop.left - pivot.dx) / 512 * size.width,
-        (crop.top - pivot.dy) / 512 * size.height,
-        crop.width / 512 * size.width,
-        crop.height / 512 * size.height,
+        (rig.crop.left - rig.pivot.dx) * scale,
+        (rig.crop.top - rig.pivot.dy) * scale,
+        rig.crop.width * scale,
+        rig.crop.height * scale,
       ),
       _paint,
     );
     canvas.restore();
+  }
+}
+
+/// The petal attack, drawn above the obstacles but below the ball.
+class BossPetals extends Component {
+  BossPetals(this.encounter) : super(priority: 60);
+
+  final BossEncounter encounter;
+
+  static final _shape = Path()
+    ..moveTo(0.55, 0)
+    ..cubicTo(0.15, -0.34, -0.38, -0.32, -0.42, 0)
+    ..cubicTo(-0.38, 0.32, 0.15, 0.34, 0.55, 0)
+    ..close();
+
+  @override
+  void render(Canvas canvas) {
+    for (final petal in encounter.petals) {
+      // Keep decorative projectiles out of the lower flipper approach.
+      if (petal.y > 34) continue;
+      final opacity = ((6 - petal.age) / 0.8).clamp(0.0, 1.0);
+      canvas.save();
+      canvas.translate(petal.x, petal.y);
+      canvas.rotate(petal.angle);
+      canvas.drawLine(
+        const Offset(-1.4, 0),
+        const Offset(-0.45, 0),
+        Paint()
+          ..color = Color.fromRGBO(214, 170, 255, opacity * 0.35)
+          ..strokeWidth = 0.06
+          ..strokeCap = StrokeCap.round,
+      );
+      canvas.drawPath(
+        _shape,
+        Paint()
+          ..color = Color.fromRGBO(196, 92, 255, opacity * 0.55)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 0.22),
+      );
+      canvas.drawPath(
+        _shape,
+        Paint()
+          ..shader = Gradient.radial(
+            const Offset(0.12, 0),
+            0.6,
+            [
+              Color.fromRGBO(255, 244, 255, opacity),
+              Color.fromRGBO(226, 140, 255, opacity),
+              Color.fromRGBO(150, 64, 214, opacity),
+            ],
+            const [0, 0.45, 1],
+          ),
+      );
+      canvas.restore();
+    }
   }
 }

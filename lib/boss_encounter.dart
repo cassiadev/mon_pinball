@@ -28,8 +28,8 @@ class BossEncounter {
   double _activeOriginElapsed = 0;
   double _hurtUntil = 0;
   bool _overlapping = false;
-  Vector2 _position = Vector2(14, 10);
-  Vector2 _previousPosition = Vector2(14, 10);
+  Vector2 _position = Vector2(14, 8.6);
+  Vector2 _previousPosition = Vector2(14, 8.6);
   List<BossPetal> _petals = const [];
 
   int get maxHealth => 16000;
@@ -86,7 +86,7 @@ class BossEncounter {
     _health = maxHealth;
     _elapsed = 0;
     _activeOriginElapsed = 0;
-    _position = Vector2(14, 10);
+    _position = Vector2(14, 8.6);
     _previousPosition = _position.clone();
   }
 
@@ -132,8 +132,8 @@ class BossEncounter {
   }
 
   Vector2 _positionAt(double time) => Vector2(
-    14 + math.sin(time * 0.55) * 2.2,
-    10 + math.sin(time * 1.1) * 0.65,
+    14 + math.sin(time * 0.55) * 1.6,
+    8.6 + math.sin(time * 1.1) * 0.6,
   );
 
   void _updatePetals() {

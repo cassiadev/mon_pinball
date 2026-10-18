@@ -11,86 +11,292 @@ class MoonlitTable extends Component {
   MoonlitTable(this.garden) : super(priority: -100);
 
   static const double centerX = 14;
-  static const moonCenter = Offset(centerX, 28.5);
+  static const moonCenter = Offset(centerX, 36.8);
+  static const board = Rect.fromLTWH(0, 0, 28, 56);
+
+  /// The inside of the gold frame; the boss is clipped to it.
+  static final playfield = RRect.fromRectAndRadius(
+    board.deflate(0.16),
+    const Radius.circular(3),
+  );
 
   final ui.Image garden;
 
   @override
   void render(Canvas canvas) {
-    const board = Rect.fromLTWH(0, 0, 28, 48);
-    final frame = RRect.fromRectAndRadius(
-      board.deflate(0.28),
-      const Radius.circular(2.1),
-    );
     canvas.save();
-    canvas.clipRRect(frame);
+    canvas.clipRRect(playfield);
+    // Cover the portrait board, keeping the garden's centre line on x = 14.
+    final sourceWidth = garden.height * board.width / board.height;
     canvas.drawImageRect(
       garden,
-      Rect.fromLTWH(0, 0, garden.width.toDouble(), garden.height.toDouble()),
+      Rect.fromLTWH(
+        (garden.width - sourceWidth) / 2,
+        0,
+        sourceWidth,
+        garden.height.toDouble(),
+      ),
       board,
       Paint()..filterQuality = FilterQuality.medium,
     );
-    // Fade printed art inside the table so actual ball/obstacles stay distinct.
-    canvas.drawRRect(frame, Paint()..color = const Color(0x22060A20));
+    // Quiet the middle so balls and jewels read; foliage stays at the rim.
+    canvas.drawRect(
+      board,
+      Paint()
+        ..shader = const RadialGradient(
+          center: Alignment(0, -0.15),
+          radius: 0.95,
+          colors: [Color(0xA6070D26), Color(0x70070D26), Color(0x18070D26)],
+          stops: [0, 0.62, 1],
+        ).createShader(board),
+    );
+    _drawGuides(canvas);
     _drawMoon(canvas);
     canvas.restore();
+
     canvas.drawRRect(
-      frame,
+      playfield,
+      Paint()
+        ..color = const Color(0xFF030614)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 0.5,
+    );
+    canvas.drawRRect(
+      playfield,
       PinballStyle.metal(board)
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 0.22,
+        ..strokeWidth = 0.32,
     );
     canvas.drawRRect(
-      RRect.fromRectAndRadius(board.deflate(0.47), const Radius.circular(1.9)),
+      RRect.fromRectAndRadius(board.deflate(0.42), const Radius.circular(2.8)),
       Paint()
-        ..color = PinballStyle.violet.withValues(alpha: 0.6)
+        ..color = PinballStyle.gold.withValues(alpha: 0.35)
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 0.045,
+        ..strokeWidth = 0.05,
     );
+  }
+
+  void _drawGuides(Canvas canvas) {
+    final faint = Paint()
+      ..color = PinballStyle.cyan.withValues(alpha: 0.14)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.04;
+    for (final radius in [3.4, 4.4, 6.2]) {
+      canvas.drawCircle(moonCenter, radius, faint);
+    }
+    canvas.drawLine(
+      const Offset(centerX, 20.4),
+      const Offset(centerX, 52),
+      Paint()
+        ..color = PinballStyle.gold.withValues(alpha: 0.28)
+        ..strokeWidth = 0.035,
+    );
+    for (final dot in const [Offset(9.8, 24), Offset(18.2, 24)]) {
+      canvas.drawCircle(dot, 0.2, Paint()..color = PinballStyle.gold);
+      canvas.drawCircle(
+        dot,
+        0.36,
+        Paint()..color = PinballStyle.gold.withValues(alpha: 0.25),
+      );
+    }
+    _diamond(canvas, const Offset(centerX, 22.6), 0.32, PinballStyle.gold);
+    _diamond(canvas, const Offset(centerX, 24.7), 0.24, PinballStyle.red);
+    _diamond(canvas, const Offset(centerX, 44.2), 0.18, PinballStyle.gold);
+    // Hanging lamps above the two spinners.
+    for (final lamp in const [(5.75, 24.6, 28.6), (20.7, 22.4, 28.6)]) {
+      canvas.drawLine(
+        Offset(lamp.$1, lamp.$2),
+        Offset(lamp.$1, lamp.$3),
+        Paint()
+          ..color = PinballStyle.gold.withValues(alpha: 0.45)
+          ..strokeWidth = 0.03,
+      );
+      _diamond(canvas, Offset(lamp.$1, lamp.$2), 0.34, PinballStyle.text);
+    }
+    for (final flower in const [
+      Offset(4.6, 26.6),
+      Offset(9.8, 33.4),
+      Offset(18.2, 33.4),
+      Offset(9.4, 36.8),
+      Offset(18.6, 36.8),
+    ]) {
+      _sakura(canvas, flower, 0.42);
+    }
   }
 
   void _drawMoon(Canvas canvas) {
     // All central objects share x=14, independent of the right launcher lane.
     const center = moonCenter;
-    for (var i = 0; i < 4; i++) {
-      canvas.drawCircle(
-        center,
-        2.65 + i * 0.44,
-        Paint()
-          ..color = (i == 0 ? PinballStyle.gold : PinballStyle.cyan).withValues(
-            alpha: i == 0 ? 0.85 : 0.16,
-          )
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = i == 0 ? 0.065 : 0.025,
-      );
-    }
-    canvas.drawCircle(center, 2.56, Paint()..color = const Color(0xCC102B3D));
+    canvas.drawCircle(center, 2.6, Paint()..color = const Color(0xE60B2633));
+    canvas.drawCircle(
+      center,
+      2.6,
+      PinballStyle.metal(Rect.fromCircle(center: center, radius: 2.6))
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 0.14,
+    );
     canvas.save();
     canvas.clipPath(
-      Path()..addOval(Rect.fromCircle(center: center, radius: 1.13)),
+      Path()..addOval(Rect.fromCircle(center: center, radius: 1.25)),
     );
-    canvas.drawCircle(center, 1.13, Paint()..color = PinballStyle.text);
+    canvas.drawCircle(center, 1.25, Paint()..color = PinballStyle.text);
     final wave = Paint()
-      ..color = const Color(0xFF386271)
+      ..color = const Color(0xFF2F5866)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 0.12;
-    for (final dy in [-0.48, 0.03, 0.54]) {
+      ..strokeWidth = 0.16;
+    for (final dy in [-0.5, 0.05, 0.6]) {
       canvas.drawPath(
         Path()
-          ..moveTo(12.7, 28.5 + dy)
-          ..cubicTo(13.7, 27.8 + dy, 14.3, 29.2 + dy, 15.3, 28.5 + dy),
+          ..moveTo(center.dx - 1.4, center.dy + dy)
+          ..cubicTo(
+            center.dx - 0.4,
+            center.dy - 0.7 + dy,
+            center.dx + 0.4,
+            center.dy + 0.7 + dy,
+            center.dx + 1.4,
+            center.dy + dy,
+          ),
         wave,
       );
     }
     canvas.restore();
-    for (final y in [23.0, 24.3, 25.6, 32.6, 33.9]) {
-      canvas.drawCircle(
-        Offset(14, y),
-        0.045,
-        Paint()..color = PinballStyle.gold,
+    // Two reed-like ripples under the disc.
+    final ripple = Paint()
+      ..color = PinballStyle.cyan.withValues(alpha: 0.35)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.05;
+    for (final width in [2.4, 3.4]) {
+      canvas.drawArc(
+        Rect.fromCenter(
+          center: center + const Offset(0, 1.75),
+          width: width,
+          height: 0.6,
+        ),
+        0,
+        math.pi,
+        false,
+        ripple,
       );
     }
   }
+}
+
+/// Gold trim above the walls: the crest arch and the rail rivets.
+class TableTrim extends Component {
+  TableTrim() : super(priority: -8);
+
+  @override
+  void render(Canvas canvas) {
+    final arch = Path()
+      ..moveTo(9.4, 0.2)
+      ..cubicTo(10.4, -0.85, 17.6, -0.85, 18.6, 0.2);
+    for (final (width, color) in [
+      (0.5, const Color(0xFF030614)),
+      (0.24, PinballStyle.gold),
+    ]) {
+      canvas.drawPath(
+        arch,
+        Paint()
+          ..color = color
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = width
+          ..strokeCap = StrokeCap.round,
+      );
+    }
+    canvas.drawPath(
+      Path()
+        ..moveTo(10.2, 0.35)
+        ..cubicTo(11.2, -0.4, 16.8, -0.4, 17.8, 0.35),
+      Paint()
+        ..color = PinballStyle.gold.withValues(alpha: 0.5)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 0.06,
+    );
+    _stud(canvas, const Offset(centerX, -0.55), 0.3);
+
+    for (final rivet in const [
+      Offset(1.1, 17.5),
+      Offset(1.1, 24.7),
+      Offset(1.1, 28.2),
+      Offset(1.1, 40.6),
+      Offset(26.9, 17.5),
+      Offset(26.9, 24.7),
+      Offset(26.9, 35.3),
+      Offset(2.2, 2.4),
+      Offset(25.8, 2.4),
+      Offset(7.2, 0.6),
+      Offset(20.8, 0.6),
+    ]) {
+      canvas.drawCircle(rivet, 0.36, Paint()..color = const Color(0xFF0A0E22));
+      canvas.drawCircle(
+        rivet,
+        0.32,
+        Paint()
+          ..color = PinballStyle.gold
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 0.09,
+      );
+    }
+    // The lane's inner wall ends in a gold cap where the orbit drops back in.
+    canvas.drawLine(
+      const Offset(24.4, 21.05),
+      const Offset(24.4, 24.4),
+      Paint()
+        ..color = PinballStyle.gold
+        ..strokeWidth = 0.16
+        ..strokeCap = StrokeCap.round,
+    );
+    _stud(canvas, const Offset(24.4, 21), 0.24);
+  }
+
+  static const double centerX = MoonlitTable.centerX;
+}
+
+void _stud(Canvas canvas, Offset center, double radius) {
+  canvas.drawCircle(
+    center,
+    radius,
+    PinballStyle.metal(Rect.fromCircle(center: center, radius: radius)),
+  );
+  canvas.drawCircle(
+    center - Offset(radius, radius) * 0.3,
+    radius * 0.3,
+    Paint()..color = Colors.white.withValues(alpha: 0.55),
+  );
+}
+
+void _diamond(Canvas canvas, Offset center, double size, Color color) {
+  final path = Path()
+    ..moveTo(center.dx, center.dy - size)
+    ..lineTo(center.dx + size * 0.7, center.dy)
+    ..lineTo(center.dx, center.dy + size)
+    ..lineTo(center.dx - size * 0.7, center.dy)
+    ..close();
+  canvas.drawPath(path, Paint()..color = color.withValues(alpha: 0.85));
+  canvas.drawPath(
+    path,
+    Paint()
+      ..color = PinballStyle.gold
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.05,
+  );
+}
+
+void _sakura(Canvas canvas, Offset center, double radius) {
+  final petal = Paint()..color = const Color(0xFF9C7DC4).withValues(alpha: 0.7);
+  for (var i = 0; i < 5; i++) {
+    final a = -math.pi / 2 + i * math.pi * 2 / 5;
+    canvas.drawCircle(
+      center + Offset(math.cos(a), math.sin(a)) * radius * 0.5,
+      radius * 0.36,
+      petal,
+    );
+  }
+  canvas.drawCircle(
+    center,
+    radius * 0.18,
+    Paint()..color = PinballStyle.gold.withValues(alpha: 0.8),
+  );
 }
 
 /// Draw a jewel inside the physical bumper's existing circular footprint.

@@ -47,13 +47,14 @@ void main() {
       final boss = game.boss;
       final ball = _ball(game);
       final center = boss.position;
-      final from = center + Vector2(-0.7, 1.92);
+      const reach = 1.35 + PinballBall.radius;
+      final from = center + Vector2(-0.7, reach - 0.05);
       ball.body.setTransform(from, 0);
       ball.body.linearVelocity = Vector2(120, 0);
       game.stepEngine();
 
-      expect(from.distanceTo(center), greaterThan(1.97));
-      expect(ball.position.distanceTo(boss.position), greaterThan(1.97));
+      expect(from.distanceTo(center), greaterThan(reach));
+      expect(ball.position.distanceTo(boss.position), greaterThan(reach));
       expect(boss.health, 14720);
       expect(ball.body.linearVelocity.x, closeTo(120, 0.001));
       expect(ball.body.linearVelocity.y, closeTo(0, 0.001));
@@ -109,7 +110,7 @@ void main() {
     game.stepEngine();
     expect(boss.health, 14720);
     expect(boss.hurtProgress, greaterThan(0));
-    _place(game, Vector2(14, 53));
+    _place(game, Vector2(14, MonPinballGame.boardHeight + 5));
     game.stepEngine();
     game.stepEngine();
     expect(boss.health, 14720);
@@ -151,7 +152,7 @@ void main() {
           if (restart) {
             game.restartGame();
           } else {
-            _place(game, Vector2(14, 53));
+            _place(game, Vector2(14, MonPinballGame.boardHeight + 5));
             game.stepEngine();
             expect(game.hud.value.lives, 2);
           }
@@ -201,7 +202,10 @@ void main() {
       expect(game.hud.value.score, 16000);
       expect(game.hud.value.lives, 3);
       expect(game.hud.value.status, contains('승리'));
-      expect(_ball(game).position.distanceTo(Vector2(25, 43)), lessThan(0.001));
+      expect(
+        _ball(game).position.distanceTo(game.launchPosition),
+        lessThan(0.001),
+      );
       game.startLauncherCharge(timed: false);
       expect(boss.defeated, isFalse);
       expect(boss.health, 16000);
