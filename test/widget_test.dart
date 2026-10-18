@@ -27,8 +27,7 @@ void main() {
     final status = tester.getRect(find.byKey(const ValueKey('pinball-status')));
 
     expect(score.bottom, lessThanOrEqualTo(table.top));
-    // The live status sits on its own line under the table, as in the mockup.
-    expect(status.top, greaterThanOrEqualTo(table.bottom));
+    expect(status.bottom, lessThanOrEqualTo(table.top));
     expect(find.text('다시 시작'), findsOneWidget);
     expect(
       table.width / table.height,
@@ -36,11 +35,13 @@ void main() {
     );
   });
 
-  testWidgets('portrait table fills the available width', (tester) async {
+  testWidgets('portrait table fills the space under compact instruments', (
+    tester,
+  ) async {
     await pumpPinballApp(tester, pauseGame: true);
     addTearDown(() => disposePinballScenario(tester));
 
-    expect(pinballInputRect(tester).width, greaterThanOrEqualTo(350));
+    expectCompactInstrumentsLeaveTheTable(tester);
   });
 
   testWidgets('narrow instruments show full status and an eight digit score', (

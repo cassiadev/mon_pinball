@@ -119,6 +119,30 @@ Rect pinballInputRect(WidgetTester tester) {
   return tester.getRect(find.byKey(const ValueKey('pinball-input-surface')));
 }
 
+/// The mockup's instruments take about an eighth of a phone screen. They must
+/// stay under 14% of the height, and the table fills the space left below in
+/// width or height. Device runs include real system-bar insets, so this checks
+/// proportions rather than a fixed host pixel width.
+void expectCompactInstrumentsLeaveTheTable(WidgetTester tester) {
+  final table = pinballInputRect(tester);
+  final screen = tester.getRect(find.byType(Scaffold));
+  final insets = MediaQuery.paddingOf(tester.element(find.byType(Scaffold)));
+  expect(table.top - screen.top - insets.top, lessThan(screen.height * 0.14));
+  final room = tester.getRect(
+    find
+        .ancestor(
+          of: find.byKey(const ValueKey('pinball-input-surface')),
+          matching: find.byType(Center),
+        )
+        .first,
+  );
+  expect(
+    table.width >= room.width - 0.5 || table.height >= room.height - 0.5,
+    isTrue,
+  );
+  expect(table.width, greaterThan(screen.width * 0.85));
+}
+
 Offset playfieldPosition(WidgetTester tester, String side) {
   final rect = pinballInputRect(tester);
   final dx = switch (side) {

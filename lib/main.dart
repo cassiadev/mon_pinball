@@ -112,7 +112,6 @@ class _PinballScreenState extends State<PinballScreen> {
                                 ),
                               ),
                             ),
-                            if (!wide) _StatusLine(game: _game),
                           ],
                         ),
                       ),
@@ -469,39 +468,57 @@ class _MoonlitHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Row(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // The mockup leaves the middle of the balls row free; the live status
+        // uses it unless the screen is too narrow for a readable line.
+        final inlineStatus = constraints.maxWidth >= 350;
+        final status = _StatusLine(snapshot: snapshot, compact: true);
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Flexible(
-              flex: 5,
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                alignment: Alignment.centerLeft,
-                child: _TitleMark(compact: true),
-              ),
+            Row(
+              children: [
+                const Flexible(
+                  flex: 5,
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: _TitleMark(compact: true),
+                  ),
+                ),
+                const _Divider(height: 34),
+                Expanded(flex: 4, child: _ScoreReadout(snapshot: snapshot)),
+                const SizedBox(width: 8),
+                _RestartButton(onPressed: game.restartGame),
+              ],
             ),
-            const _Divider(height: 34),
-            Expanded(flex: 4, child: _ScoreReadout(snapshot: snapshot)),
-            const SizedBox(width: 8),
-            _RestartButton(onPressed: game.restartGame),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                const SizedBox(width: 6),
+                _Lives(snapshot: snapshot),
+                if (inlineStatus) ...[
+                  const _Divider(height: 14),
+                  Expanded(child: status),
+                  const SizedBox(width: 10),
+                ] else
+                  const Spacer(),
+                _ComboBadge(snapshot: snapshot),
+                const SizedBox(width: 6),
+              ],
+            ),
+            if (!inlineStatus)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(6, 3, 6, 0),
+                child: status,
+              ),
+            const SizedBox(height: 4),
+            _BossHealth(snapshot: snapshot),
           ],
-        ),
-        const SizedBox(height: 4),
-        Row(
-          children: [
-            const SizedBox(width: 6),
-            _Lives(snapshot: snapshot),
-            const Spacer(),
-            _ComboBadge(snapshot: snapshot),
-            const SizedBox(width: 6),
-          ],
-        ),
-        const SizedBox(height: 4),
-        _BossHealth(snapshot: snapshot),
-      ],
+        );
+      },
     );
   }
 }
@@ -546,9 +563,7 @@ class _Sidebar extends StatelessWidget {
         const SizedBox(height: 12),
         _InstrumentPanel(child: _BossHealth(snapshot: snapshot)),
         const SizedBox(height: 12),
-        _InstrumentPanel(
-          child: _StatusLine(game: game, snapshot: snapshot),
-        ),
+        _InstrumentPanel(child: _StatusLine(snapshot: snapshot)),
         const SizedBox(height: 12),
         const _ControlsList(),
       ],
@@ -646,7 +661,9 @@ class _RestartButton extends StatelessWidget {
       onPressed: onPressed,
       style: TextButton.styleFrom(
         foregroundColor: PinballStyle.text,
+        // A full 44 px target without Material's extra 48 px padding row.
         minimumSize: const Size(44, 44),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         padding: const EdgeInsets.symmetric(horizontal: 10),
         backgroundColor: const Color(0xCC0B0E26),
         shape: RoundedRectangleBorder(
@@ -895,38 +912,28 @@ class _Divider extends StatelessWidget {
   }
 }
 
-/// Live status and launch charge; under the table in portrait.
+/// Live status and launch charge; in portrait it shares the balls row.
 class _StatusLine extends StatelessWidget {
-  const _StatusLine({required this.game, this.snapshot});
+  const _StatusLine({required this.snapshot, this.compact = false});
 
-  final MonPinballGame game;
-  final PinballSnapshot? snapshot;
+  final PinballSnapshot snapshot;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
-    final current = snapshot;
-    if (current == null) {
-      return ValueListenableBuilder<PinballSnapshot>(
-        valueListenable: game.hud,
-        builder: (context, value, _) => Padding(
-          padding: const EdgeInsets.fromLTRB(8, 2, 8, 0),
-          child: _StatusLine(game: game, snapshot: value),
-        ),
-      );
-    }
-    final percent = '${(current.launchCharge * 100).round()}%';
+    final percent = '${(snapshot.launchCharge * 100).round()}%';
     return Row(
       children: [
         Expanded(
           child: Semantics(
             liveRegion: true,
             child: Text(
-              current.status,
+              snapshot.status,
               key: const ValueKey('pinball-status'),
               style: TextStyle(
-                fontSize: 11,
-                height: 1.35,
-                color: current.gameOver
+                fontSize: compact ? 10.5 : 11,
+                height: 1.3,
+                color: snapshot.gameOver
                     ? PinballStyle.coral
                     : PinballStyle.muted,
               ),
@@ -935,10 +942,10 @@ class _StatusLine extends StatelessWidget {
         ),
         const SizedBox(width: 8),
         SizedBox(
-          width: 44,
+          width: compact ? 30 : 44,
           child: LinearProgressIndicator(
             key: const ValueKey('pinball-launch-charge'),
-            value: current.launchCharge,
+            value: snapshot.launchCharge,
             minHeight: 3,
             backgroundColor: PinballStyle.line,
             color: PinballStyle.cyan,
@@ -947,11 +954,13 @@ class _StatusLine extends StatelessWidget {
             borderRadius: BorderRadius.circular(2),
           ),
         ),
-        const SizedBox(width: 6),
-        Text(
-          percent,
-          style: const TextStyle(fontSize: 11, color: PinballStyle.cyan),
-        ),
+        if (!compact) ...[
+          const SizedBox(width: 6),
+          Text(
+            percent,
+            style: const TextStyle(fontSize: 11, color: PinballStyle.cyan),
+          ),
+        ],
       ],
     );
   }

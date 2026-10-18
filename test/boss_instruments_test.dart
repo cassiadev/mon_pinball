@@ -6,6 +6,7 @@ import 'support/pinball_test_harness.dart';
 
 void main() {
   configurePinballTestBinding();
+  setUpAll(loadPinballTestFont);
 
   testWidgets('remaining boss health is visible and accessible before launch', (
     tester,
@@ -19,7 +20,7 @@ void main() {
         find.byKey(const ValueKey('pinball-boss-health')),
       );
       expect(bar.value, 1);
-      expect(pinballInputRect(tester).width, greaterThanOrEqualTo(350));
+      expectCompactInstrumentsLeaveTheTable(tester);
     } finally {
       semantics.dispose();
     }
