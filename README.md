@@ -159,6 +159,10 @@ score. Bundled fonts keep text deterministic and readable. Widget tests cover
 larger text, compact landscape, responsive state preservation, and launcher
 input after resizing. `test/table_traps_test.dart` checks that balls returning
 down the lane re-arm the plunger and that no table pocket holds a resting ball.
+Table tests strike a ball with each flipper's outermost tip and bounce it off
+every bumper, moon and gold post. `test/render_budget_test.dart` checks that the
+static table art is reused between frames and that drawing code adds no blur
+or mask passes.
 
 Score comparison goldens use the same `390 x 844` screen with eight digits
 (`12,345,678`), nine digits (`123,456,789`), and the 19-digit native integer

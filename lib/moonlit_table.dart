@@ -28,6 +28,10 @@ class MoonlitTable extends Component {
   ui.Image? _baked;
   double _bakedScale = 0;
   static final _bakedBounds = board.inflate(0.3);
+
+  /// The pre-rendered static art, so tests can guard that it is reused.
+  @visibleForTesting
+  ui.Image? get bakedArt => _baked;
   final _blit = Paint()..filterQuality = FilterQuality.low;
 
   @override

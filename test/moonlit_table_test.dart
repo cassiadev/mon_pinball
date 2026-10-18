@@ -115,6 +115,85 @@ void main() {
     picture.dispose();
   });
 
+  for (final left in [true, false]) {
+    testWidgets(
+      'the ${left ? 'left' : 'right'} flipper strikes with its drawn tip',
+      (tester) async {
+        final game = await pumpPinballApp(tester, pauseGame: true);
+        addTearDown(() => disposePinballScenario(tester));
+        game.world.gravity = Vector2.zero();
+        final flipper = game.world.children.whereType<Flipper>().singleWhere(
+          (f) => f.isLeft == left,
+        );
+        final side = left ? 1.0 : -1.0;
+        // The blade's contact area reaches the rounded end that is drawn.
+        final tipEnd = Vector2(
+          side * (Flipper.length + Flipper.tipRadius - 0.05),
+          0,
+        );
+        expect(
+          flipper.body.fixtures.any(
+            (fixture) => fixture.testPoint(flipper.body.worldPoint(tipEnd)),
+          ),
+          isTrue,
+        );
+
+        // Only the outermost part of the tip can reach this ball: a blade cut
+        // short by even half a ball never touches it.
+        final ball = game.world.children.whereType<PinballBall>().single;
+        ball.body.setType(BodyType.dynamic);
+        ball.body.setTransform(
+          flipper.body.worldPoint(Vector2(side * 6.15, -1.17)),
+          0,
+        );
+        ball.body.linearVelocity = Vector2.zero();
+        if (left) {
+          game.setLeftFlipper(true);
+        } else {
+          game.setRightFlipper(true);
+        }
+        for (var frame = 0; frame < 12; frame++) {
+          game.stepEngine();
+        }
+        expect(ball.body.linearVelocity.y, lessThan(-5));
+      },
+    );
+  }
+
+  testWidgets('every bumper, moon and gold post bounces the ball and scores', (
+    tester,
+  ) async {
+    final game = await pumpPinballApp(tester, pauseGame: true);
+    addTearDown(() => disposePinballScenario(tester));
+    game.world.gravity = Vector2.zero();
+    final ball = game.world.children.whereType<PinballBall>().single;
+    final bumpers = game.world.children.whereType<Bumper>().toList();
+    expect(bumpers, hasLength(6));
+    expect(
+      bumpers.map((bumper) => bumper.style),
+      containsAll(BumperStyle.values),
+    );
+
+    for (final bumper in bumpers) {
+      game.restartGame();
+      ball.body.setType(BodyType.dynamic);
+      // Drop straight onto the top of the bumper from open space above it.
+      ball.body.setTransform(
+        bumper.body.position -
+            Vector2(0, bumper.radius + PinballBall.radius + 1.5),
+        0,
+      );
+      ball.body.linearVelocity = Vector2(0, 20);
+      for (var frame = 0; frame < 60 && game.hud.value.score == 0; frame++) {
+        game.stepEngine();
+      }
+      game.stepEngine();
+      final where = '${bumper.style.name} at ${bumper.bumperCenter}';
+      expect(game.hud.value.score, bumper.points, reason: where);
+      expect(ball.body.linearVelocity.y, lessThan(-10), reason: where);
+    }
+  });
+
   testWidgets('jade bumper shares the symmetric flipper center axis', (
     tester,
   ) async {
