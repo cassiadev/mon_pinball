@@ -20,20 +20,32 @@ flutter run
 - Touch right side outside the plunger lane: right flipper
 - Drag the right plunger lane downward, then release to shoot
 - Keyboard: `A`/left arrow, `D`/right arrow, `Space`/down arrow to launch, `W`/up arrow to nudge, `R` to restart
+- A ball that rolls back down the plunger lane rests on the plunger and can be
+  launched again without losing it
 
 ## Visual Design
 
 The moonlit garden design combines midnight-indigo pond art, hanging wisteria,
 antique-gold rails, jade/rose/gold jewel bumpers and an ivory ball. The static
 background and transparent six-part boss atlas are bundled local assets; see
-[artwork provenance](assets/images/moonlit/ARTWORK.md). Physical obstacles are
-independent of the boss layer. The jade bumper, moon emblem and flipper gap
-share the same horizontal center. The rose bumper keeps an open ball passage
-beside the diagonal rail, and visible flippers match their contact fixtures.
+[artwork provenance](assets/images/moonlit/ARTWORK.md). The 28 x 56 table
+follows the approved portrait mockup, and the garden plate also frames the
+screen around it. The boss floats on her own layer beneath the physical
+obstacles, so jewels, targets and the ball stay readable over her; her petals
+draw above the obstacles. The jade bumper, moon emblem and flipper gap share
+the same horizontal center, and visible flippers match their contact fixtures.
 
-Portrait uses a compact title/ball-count row, a centered score strip, and
-a thin status/charge row so the table fills the available width. Flipper
-hints are a single text row. Wide windows and phone landscape layouts
+One continuous wall chain forms the left guide, rounded top and right wall
+and closes the plunger lane; the lane wall runs straight into the right inlane
+guide. Inlane guides end just above each flipper, slingshots and paired
+targets leave a full ball width, and right-side corners sit flush with the lane
+wall. A sweep test rests a ball across the whole table and fails if it ever
+comes to rest anywhere but the plunger.
+
+Portrait follows the mockup header: title, score and restart; remaining balls,
+live status, launch charge and combo; then the boss health bar, together about
+13% of a phone's height. Below 350 px wide the status takes its own header
+line. The flipper and launch captions are printed on the table. Wide windows and phone landscape layouts
 place the instruments on the right. The game stays mounted
 across layout changes, and touch coordinates remain local to the table.
 On short screens or with large text, the instruments scroll within their
@@ -46,13 +58,13 @@ restart panels, plus the bottom control hint. Its translucent dark fill,
 rounded corners, faint white border, and shadow gave it a glass-like style;
 it did not blur the background. The current `_InstrumentPanel` uses a solid
 dark fill and a thin border for the wide dashboard. Portrait uses the more
-compact `_CompactDashboard` to leave room for the table.
+compact `_MoonlitHeader` to leave room for the table.
 
 ### Boss encounter
 
-Tsukibina floats over the obstacles. Body, wings, sleeves and hem animate
+Tsukibina floats over the upper jewels. Body, wings, sleeves and hem animate
 independently for breathing, flight lag, attack anticipation/recovery and hit
-recoil. The golden brooch is the damage sensor: a ball crossing it deals 1,280
+recoil; each part keeps the aspect ratio it was drawn with. The golden brooch is the damage sensor: a ball crossing it deals 1,280
 damage without a new physical impulse. The boss starts with 16,000 health.
 The bar shows remaining health without a percentage label; screen readers
 receive the numeric health. Scoring hits build the combo; a drained ball resets
@@ -61,8 +73,9 @@ combo while preserving boss damage. Restart restores the whole encounter.
 The first pattern is a bounded pair of curved lilac petal fans. These petals
 are decorative and never collide with the ball. Attacks start only after launch
 and clear on drain/restart/defeat. Defeating the boss holds the ball, preserves
-remaining lives and enables replay. Higher-difficulty physical petals and
-elaborate entrance/defeat sequences remain future work.
+remaining lives and enables replay. Defeat plays a 1.4 second exit (brooch
+flash, then she rises and fades) and removes her from the board until replay.
+Higher-difficulty physical petals and an entrance sequence remain future work.
 
 ### Fonts and License Provenance
 
@@ -134,7 +147,8 @@ It also covers a
 `1280 x 800` desktop layout and a `320 x 740` narrow layout with an eight-digit
 score. Bundled fonts keep text deterministic and readable. Widget tests cover
 larger text, compact landscape, responsive state preservation, and launcher
-input after resizing.
+input after resizing. `test/table_traps_test.dart` checks that balls returning
+down the lane re-arm the plunger and that no table pocket holds a resting ball.
 
 Score comparison goldens use the same `390 x 844` screen with eight digits
 (`12,345,678`), nine digits (`123,456,789`), and the 19-digit native integer

@@ -9,13 +9,15 @@ No game art from Touhou or other games was imported.
   Top row: central head/body/inner dress; left butterfly wing; right wing.
   Bottom row: left arm/sleeve; right arm/sleeve; outer trailing hem.
 
-The renderer draws each cell independently with shoulder/wing/waist anchors.
-Body/chest position is the same board coordinate used by the weak-point sensor.
+The renderer draws each cell independently with shoulder/wing/waist anchors,
+each at its own uniform scale so no part is stretched on one axis. The layout
+was measured against the final floating-boss mockup. Body/chest position is
+the same board coordinate used by the weak-point sensor.
 The atlas is not a completed animation; breathing, flight lag, attack poses and
 hit recoil are implemented in code.
 
-Wings, sleeves and the outer hem are translucent so the physical jewel cores
-remain visible beneath the floating boss; the face and central body stay opaque.
+The figure is drawn opaque (wings at 94%) on a layer beneath the physical
+obstacles, so the jewel bumpers and targets stay visible over her.
 
 Generation brief: create isolated rig parts of the original purple/gold hina
 doll with translucent cyan/lilac butterfly wings, delicate embroidered sleeves,
