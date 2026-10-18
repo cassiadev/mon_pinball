@@ -556,10 +556,15 @@ class _Sidebar extends StatelessWidget {
         _InstrumentPanel(child: _ScoreReadout(snapshot: snapshot, height: 34)),
         const SizedBox(height: 12),
         _InstrumentPanel(
-          child: Row(
+          // Balls and combo share a line when they fit and wrap otherwise,
+          // so large text never pushes them past the panel.
+          child: Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 12,
+            runSpacing: 8,
             children: [
               _Lives(snapshot: snapshot),
-              const Spacer(),
               _ComboBadge(snapshot: snapshot),
             ],
           ),
@@ -815,45 +820,104 @@ class _BossHealth extends StatelessWidget {
 
   final PinballSnapshot snapshot;
 
+  /// The bar stays on the label row only while it keeps this much width.
+  static const double _minInlineBar = 96;
+
+  static const _nameStyle = TextStyle(
+    fontSize: 13,
+    fontWeight: FontWeight.w500,
+    color: PinballStyle.text,
+  );
+  static const _labelStyle = TextStyle(fontSize: 10, color: PinballStyle.muted);
+
   @override
   Widget build(BuildContext context) {
     final remaining = snapshot.bossMaxHealth > 0
         ? (snapshot.bossHealth / snapshot.bossMaxHealth).clamp(0.0, 1.0)
         : 0.0;
+    final bar = HealthBar(
+      key: const ValueKey('pinball-boss-health'),
+      value: remaining,
+      defeated: snapshot.bossDefeated,
+    );
     return Semantics(
       label: '츠키비나 남은 체력 ${snapshot.bossHealth} / ${snapshot.bossMaxHealth}',
       value: '${snapshot.combo} 콤보${snapshot.bossDefeated ? ', 격파' : ''}',
       excludeSemantics: true,
-      child: Row(
-        children: [
-          const _Ornament(),
-          const SizedBox(width: 6),
-          const Text(
-            '츠키비나',
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-              color: PinballStyle.text,
-            ),
-          ),
-          const _Divider(height: 14),
-          const Text(
-            '남은 체력',
-            style: TextStyle(fontSize: 10, color: PinballStyle.muted),
-          ),
-          const SizedBox(width: 6),
-          Expanded(
-            child: HealthBar(
-              key: const ValueKey('pinball-boss-health'),
-              value: remaining,
-              defeated: snapshot.bossDefeated,
-            ),
-          ),
-          const SizedBox(width: 6),
-          const _Ornament(),
-        ],
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          // Ornaments, gaps and the divider beside the two labels.
+          const fixed = 7 + 6 + 19 + 6 + 6 + 7.0;
+          final labels =
+              fixed +
+              _textWidth(context, '츠키비나', _nameStyle) +
+              _textWidth(context, '남은 체력', _labelStyle);
+          if (constraints.maxWidth - labels >= _minInlineBar) {
+            // The mockup row: name, label and bar between two ornaments.
+            return Row(
+              children: [
+                const _Ornament(),
+                const SizedBox(width: 6),
+                const Text('츠키비나', style: _nameStyle),
+                const _Divider(height: 14),
+                const Text('남은 체력', style: _labelStyle),
+                const SizedBox(width: 6),
+                Expanded(child: bar),
+                const SizedBox(width: 6),
+                const _Ornament(),
+              ],
+            );
+          }
+          // Large text or a narrow panel: wrap the labels and give the bar
+          // its own full-width line instead of squeezing it away.
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Wrap(
+                spacing: 8,
+                runSpacing: 2,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  Text.rich(
+                    TextSpan(
+                      children: [
+                        WidgetSpan(
+                          alignment: PlaceholderAlignment.middle,
+                          child: Padding(
+                            padding: EdgeInsets.only(right: 6),
+                            child: _Ornament(),
+                          ),
+                        ),
+                        TextSpan(text: '츠키비나'),
+                      ],
+                    ),
+                    style: _nameStyle,
+                  ),
+                  Text('남은 체력', style: _labelStyle),
+                ],
+              ),
+              const SizedBox(height: 4),
+              bar,
+            ],
+          );
+        },
       ),
     );
+  }
+
+  static double _textWidth(BuildContext context, String text, TextStyle style) {
+    final painter = TextPainter(
+      text: TextSpan(
+        text: text,
+        style: DefaultTextStyle.of(context).style.merge(style),
+      ),
+      textDirection: TextDirection.ltr,
+      textScaler: MediaQuery.textScalerOf(context),
+    )..layout();
+    final width = painter.width;
+    painter.dispose();
+    return width;
   }
 }
 

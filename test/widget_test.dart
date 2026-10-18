@@ -99,6 +99,36 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  // Landscape at large text once overflowed the balls/combo and boss health
+  // rows by 22 and 45 px and squeezed the health bar to nothing.
+  for (final layout in const [
+    (Size(568, 320), 2.0),
+    (Size(568, 320), 1.5),
+    (Size(1280, 800), 2.0),
+    (Size(320, 568), 2.0),
+    (Size(390, 844), 2.0),
+  ]) {
+    testWidgets(
+      'instruments fit and keep a readable health bar at ${layout.$1} and '
+      '${layout.$2}x text',
+      (tester) async {
+        await pumpPinballApp(tester, pauseGame: true);
+        addTearDown(() => disposePinballScenario(tester));
+        await tester.binding.setSurfaceSize(layout.$1);
+        tester.platformDispatcher.textScaleFactorTestValue = layout.$2;
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+        await tester.pump();
+
+        expect(tester.takeException(), isNull);
+        final bar = tester.getSize(
+          find.byKey(const ValueKey('pinball-boss-health')),
+        );
+        expect(bar.width, greaterThanOrEqualTo(96));
+        expect(find.byKey(const ValueKey('pinball-combo')), findsOneWidget);
+      },
+    );
+  }
+
   for (final layout in const [(Size(568, 320), 1.0), (Size(320, 568), 2.0)]) {
     testWidgets(
       'keeps the table usable at ${layout.$1} and ${layout.$2}x text',
