@@ -23,11 +23,13 @@ flutter run
 
 ## Visual Design
 
-The Orbital Cadet design uses a brown lacquer playfield, chrome rails and
-hardware, yellow/red/cyan obstacles, and an amber 5×7 dot score. The product
-name remains Mon Pinball. All table art uses the existing Canvas renderer;
-physics shapes, scoring, and controls are unchanged. The static backdrop is
-recorded once and reused between frames.
+The moonlit garden design combines midnight-indigo pond art, hanging wisteria,
+antique-gold rails, jade/rose/gold jewel bumpers and an ivory ball. The static
+background and transparent six-part boss atlas are bundled local assets; see
+[artwork provenance](assets/images/moonlit/ARTWORK.md). Physical obstacles are
+independent of the boss layer. The jade bumper, moon emblem and flipper gap
+share the same horizontal center. The rose bumper keeps an open ball passage
+beside the diagonal rail, and visible flippers match their contact fixtures.
 
 Portrait uses a compact title/ball-count row, a centered score strip, and
 a thin status/charge row so the table fills the available width. Flipper
@@ -36,7 +38,7 @@ place the instruments on the right. The game stays mounted
 across layout changes, and touch coordinates remain local to the table.
 On short screens or with large text, the instruments scroll within their
 allocated space so the table stays visible and usable.
-Status text wraps, the score keeps at least seven digits, and larger scores
+Status text wraps, the score keeps at least eight digits, and larger scores
 scale to fit. Restart has an explicit label.
 
 The previous `_GlassPanel` wrapped the top score, lives/status/charge, and
@@ -45,6 +47,22 @@ rounded corners, faint white border, and shadow gave it a glass-like style;
 it did not blur the background. The current `_InstrumentPanel` uses a solid
 dark fill and a thin border for the wide dashboard. Portrait uses the more
 compact `_CompactDashboard` to leave room for the table.
+
+### Boss encounter
+
+Tsukibina floats over the obstacles. Body, wings, sleeves and hem animate
+independently for breathing, flight lag, attack anticipation/recovery and hit
+recoil. The golden brooch is the damage sensor: a ball crossing it deals 1,280
+damage without a new physical impulse. The boss starts with 16,000 health.
+The bar shows remaining health without a percentage label; screen readers
+receive the numeric health. Scoring hits build the combo; a drained ball resets
+combo while preserving boss damage. Restart restores the whole encounter.
+
+The first pattern is a bounded pair of curved lilac petal fans. These petals
+are decorative and never collide with the ball. Attacks start only after launch
+and clear on drain/restart/defeat. Defeating the boss holds the ball, preserves
+remaining lives and enables replay. Higher-difficulty physical petals and
+elaborate entrance/defeat sequences remain future work.
 
 ### Fonts and License Provenance
 
@@ -64,6 +82,14 @@ Korean uses the system sans-serif fallback. Golden tests load Nanum Gothic
 from `test/fonts/` so Korean remains readable without system fonts; this
 fixture is not included in the app. The ignored `design/` folder is reference
 material and is not required to build or run the game.
+
+## Development branches
+
+Name branches by the work: `feature/`, `redesign/`, `refactor/`, or `workflow/`,
+followed by a descriptive name (for example `feature/add-moonlit-garden-boss`).
+Use the existing Conventional Commit titles (`feat:`, `fix:`, `test:`, `docs:`)
+and commit verified stages separately. Record behavior, rationale and actual
+validation in commit bodies. Merge/push only when explicitly requested.
 
 ## Checks
 
@@ -103,7 +129,8 @@ dart run build_runner build
 ```
 
 The golden suite renders the real Flame/Forge2D table at `390 x 844` for the
-initial instruments, a charged launcher, and game-over. It also covers a
+initial instruments, a charged launcher, game-over, and boss attack/hurt/victory.
+It also covers a
 `1280 x 800` desktop layout and a `320 x 740` narrow layout with an eight-digit
 score. Bundled fonts keep text deterministic and readable. Widget tests cover
 larger text, compact landscape, responsive state preservation, and launcher
@@ -126,6 +153,12 @@ flippers, launcher drag/release, restart, and keyboard nudge.
 idle waiting, charging, drains, restarts, minimum-power lane exit, and repeated
 launcher input while the ball is airborne.
 
+The boss suites additionally verify deterministic motion, fast swept weak-point
+hits, continuous-overlap suppression, real-game launch/drain/defeat cleanup,
+articulated rendered pixels, accessible health, fixed center alignment, ball
+clearance and visible flipper contact. Image decoding runs outside the tests'
+fake physics clock while simulation time remains explicitly controlled.
+
 ## Project Structure
 
 ```text
@@ -133,9 +166,13 @@ lib/
   main.dart          Flutter app, responsive instruments, game host, touch input
   pinball_game.dart  Flame/Forge2D game, physics bodies, scoring, rendering
   pinball_style.dart Shared palette, material paints, accessible dot score
+  boss_encounter.dart Deterministic boss motion, health, weak point and petals
+  moonlit_boss.dart   Independently animated boss art parts
+  moonlit_table.dart  Garden backplate, moon medallion and jewel drawing
 
 assets/
   fonts/             Product fonts and their licenses
+  images/moonlit/    Bundled garden, transparent boss atlas and artwork record
 
 test/
   features/          Gherkin feature and generated Flutter widget test

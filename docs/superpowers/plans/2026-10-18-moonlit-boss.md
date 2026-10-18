@@ -50,10 +50,10 @@ active/defeated state, time, motion pose, petals and start/update/reset/pause.
 Swept segment weak-point hit method returns damage or zero. No game/UI imports
 except existing Vector2 math. Rendering and hit detection use the same position.
 
-- [ ] Write/run failing behavior tests for activation, changing motion phases,
+- [x] Write/run failing behavior tests for activation, changing motion phases,
   swept hits, overlap suppression, defeat, pause/cleanup and reset.
-- [ ] Implement minimal model; pass tests and analysis.
-- [ ] Commit `feat: add moonlit boss encounter and motion state`.
+- [x] Implement minimal model; pass tests and analysis.
+- [x] Commit `feat: add moonlit boss encounter and motion state`.
 
 ### Task 2: Garden art and articulated rendering
 
@@ -62,10 +62,10 @@ Create `assets/images/moonlit/`, `lib/moonlit_boss.dart`,
 existing table render methods. Renderer consumes `BossEncounter`; body, wings,
 sleeves and hem animate independently. Generated art must have real transparency.
 
-- [ ] Generate/inspect/save production assets and provenance.
-- [ ] Apply garden palette and readable jewel art without compromising physics.
-- [ ] Verify asset loading and idle/move/attack/hurt rendering.
-- [ ] Commit `feat: render the moonlit garden and articulated boss`.
+- [x] Generate/inspect/save production assets and provenance.
+- [x] Apply garden palette and readable jewel art without compromising physics.
+- [x] Verify asset loading and idle/move/attack/hurt rendering.
+- [x] Commit `feat: render the moonlit garden and articulated boss`.
 
 ### Task 3: Combat integration and instruments
 
@@ -73,18 +73,43 @@ Modify `lib/pinball_game.dart`, `lib/main.dart`, related tests. Game owns encoun
 and checks the launched ball segment after physics steps. Extend `PinballSnapshot`
 with backwards-compatible optional health/combo/encounter fields.
 
-- [ ] Write/run failing real-game tests for sensor hits, unchanged velocity,
+- [x] Write/run failing real-game tests for sensor hits, unchanged velocity,
   reset/drain/defeat cleanup and accessible health display.
-- [ ] Connect renderer, motion, petals, health, damage popup and replay.
-- [ ] Pass relevant tests; inspect/update intentional golden references.
-- [ ] Commit `feat: connect boss weak points and petal attacks`.
+- [x] Connect renderer, motion, petals, health, damage popup and replay.
+- [x] Pass relevant tests; inspect/update intentional golden references.
+- [x] Commit `feat: connect boss weak points and petal attacks`.
 
 ### Task 4: Verification and documentation
 
 Update English/Korean README and final regression/golden coverage.
 
-- [ ] Full tests, static analysis and debug Android build.
-- [ ] Inspect initial/attack/hurt/defeat images and center alignment.
-- [ ] Physical-device launch/flippers, animation, visibility, hit/restart checks.
-- [ ] Independent whole-change review; fix substantive findings and verify.
-- [ ] Commit `test: verify moonlit boss gameplay and document controls`.
+- [x] Full tests, static analysis and debug Android build.
+- [x] Inspect initial/attack/hurt/defeat images and center alignment.
+- [x] Physical-device launch/flippers, animation, visibility, hit/restart checks.
+- [x] Independent whole-change review; fix substantive findings and verify.
+- [x] Commit `test: verify moonlit boss gameplay and document controls`.
+
+## Verification record
+
+Host: 66 tests passed, including 11 golden comparisons; full static analysis
+reported no issues. Debug Android build succeeded. On the unlocked Galaxy
+SM-M336K, manual play confirmed launch, articulated flight, scoring/health
+changes, damage preserved on drain, victory and replay. All 20 combat,
+instrument and responsive/input tests also passed through the live widget test
+binding on that physical device; device output counted 22 including setup and
+teardown. Normal `lib/main.dart` was restored afterward for playing.
+
+Independent final review and one scoped fix review passed. Follow-up commit
+`4886d49` exposes combo/defeat to screen readers and disposes popup painters.
+No emulator, remote push or merge was used.
+
+## Implementation decisions
+
+- The managed checkout could not be edited under the workspace permissions;
+  archive that empty checkout and keep the named feature branch in the original
+  writable workspace. This shares that workspace with the user's local work.
+- Use the approved conversation as the specification and record open rules here
+  without a new approval loop. A misunderstood rule would require adjustment.
+- Move the rose bumper 0.4 units left to keep a full ball passage at its large
+  radius. This changes its horizontal composition slightly, preserving center
+  alignment and leaving obstacle heights unchanged.

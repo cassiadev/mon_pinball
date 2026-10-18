@@ -14,6 +14,9 @@ Body/chest position is the same board coordinate used by the weak-point sensor.
 The atlas is not a completed animation; breathing, flight lag, attack poses and
 hit recoil are implemented in code.
 
+Wings, sleeves and the outer hem are translucent so the physical jewel cores
+remain visible beneath the floating boss; the face and central body stay opaque.
+
 Generation brief: create isolated rig parts of the original purple/gold hina
 doll with translucent cyan/lilac butterfly wings, delicate embroidered sleeves,
 and a separate outer skirt, on a real alpha background in a 3 x 2 grid.
