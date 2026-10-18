@@ -55,6 +55,13 @@ void main() {
           find.bySemanticsLabel('츠키비나 남은 체력 14720 / 16000'),
           findsOneWidget,
         );
+        expect(
+          tester
+              .getSemantics(find.bySemanticsLabel('츠키비나 남은 체력 14720 / 16000'))
+              .getSemanticsData()
+              .value,
+          '3 콤보',
+        );
         expect(find.text('92%'), findsNothing);
       } finally {
         semantics.dispose();
@@ -65,33 +72,45 @@ void main() {
   testWidgets(
     'boss defeat is distinct from losing lives and replay restores health',
     (tester) async {
-      final game = await pumpPinballApp(tester, pauseGame: true);
-      addTearDown(() => disposePinballScenario(tester));
-      game.hud.value = const PinballSnapshot(
-        score: 16000,
-        lives: 2,
-        launchCharge: 0,
-        status: '정원 정화 완료',
-        gameOver: false,
-        bossHealth: 0,
-        bossDefeated: true,
-        combo: 13,
-      );
-      await tester.pump();
-      expect(find.text('격파'), findsOneWidget);
-      expect(
-        tester
-            .widget<LinearProgressIndicator>(
-              find.byKey(const ValueKey('pinball-boss-health')),
-            )
-            .value,
-        0,
-      );
-      await tester.tap(find.byKey(const ValueKey('pinball-restart')));
-      await tester.pump();
-      expect(game.hud.value.bossHealth, 16000);
-      expect(game.hud.value.bossDefeated, isFalse);
-      expect(find.text('0 COMBO'), findsOneWidget);
+      final semantics = tester.ensureSemantics();
+      try {
+        final game = await pumpPinballApp(tester, pauseGame: true);
+        addTearDown(() => disposePinballScenario(tester));
+        game.hud.value = const PinballSnapshot(
+          score: 16000,
+          lives: 2,
+          launchCharge: 0,
+          status: '정원 정화 완료',
+          gameOver: false,
+          bossHealth: 0,
+          bossDefeated: true,
+          combo: 13,
+        );
+        await tester.pump();
+        expect(find.text('격파'), findsOneWidget);
+        expect(
+          tester
+              .getSemantics(find.bySemanticsLabel('츠키비나 남은 체력 0 / 16000'))
+              .getSemanticsData()
+              .value,
+          '13 콤보, 격파',
+        );
+        expect(
+          tester
+              .widget<LinearProgressIndicator>(
+                find.byKey(const ValueKey('pinball-boss-health')),
+              )
+              .value,
+          0,
+        );
+        await tester.tap(find.byKey(const ValueKey('pinball-restart')));
+        await tester.pump();
+        expect(game.hud.value.bossHealth, 16000);
+        expect(game.hud.value.bossDefeated, isFalse);
+        expect(find.text('0 COMBO'), findsOneWidget);
+      } finally {
+        semantics.dispose();
+      }
     },
   );
 }

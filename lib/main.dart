@@ -563,6 +563,7 @@ class _BossHealth extends StatelessWidget {
         : 0.0;
     return Semantics(
       label: '츠키비나 남은 체력 ${snapshot.bossHealth} / ${snapshot.bossMaxHealth}',
+      value: '${snapshot.combo} 콤보${snapshot.bossDefeated ? ', 격파' : ''}',
       excludeSemantics: true,
       child: Column(
         mainAxisSize: MainAxisSize.min,

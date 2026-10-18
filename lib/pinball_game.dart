@@ -531,6 +531,7 @@ class BossDamagePopup extends PositionComponent {
       textAlign: TextAlign.center,
     )..layout();
     text.paint(canvas, Offset(-text.width / 2, -text.height / 2));
+    text.dispose();
   }
 }
 
