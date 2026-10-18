@@ -34,6 +34,14 @@ screen around it. The boss floats on her own layer beneath the physical
 obstacles, so jewels, targets and the ball stay readable over her; her petals
 draw above the obstacles. The jade bumper, moon emblem and flipper gap share
 the same horizontal center, and visible flippers match their contact fixtures.
+The moon emblem is itself a bumper and two gold posts break up the mid-field,
+so the ball rarely crosses open space; the upper jewels leave barely a ball
+width between them.
+
+Drawing avoids per-frame blur masks, shader masks and blurred text shadows,
+which each need an offscreen pass on the phone GPU. Glows are layered strokes
+or cached gradients, and the static table art is rendered once at screen
+resolution and redrawn as a single image.
 
 One continuous wall chain forms the left guide, rounded top and right wall
 and closes the plunger lane; the lane wall runs straight into the right inlane
@@ -64,8 +72,10 @@ compact `_MoonlitHeader` to leave room for the table.
 
 Tsukibina floats over the upper jewels. Body, wings, sleeves and hem animate
 independently for breathing, flight lag, attack anticipation/recovery and hit
-recoil; each part keeps the aspect ratio it was drawn with. The golden brooch is the damage sensor: a ball crossing it deals 1,280
-damage without a new physical impulse. The boss starts with 16,000 health.
+recoil; each part keeps the aspect ratio it was drawn with. A ball crossing
+the golden brooch deals a 1,280 critical hit; striking her head or torso deals
+320. Her skirt and sleeves never count, so bumper rallies beneath her do not
+wear her down. Neither sensor gives the ball a new physical impulse. The boss starts with 16,000 health.
 The bar shows remaining health without a percentage label; screen readers
 receive the numeric health. Scoring hits build the combo; a drained ball resets
 combo while preserving boss damage. Restart restores the whole encounter.
