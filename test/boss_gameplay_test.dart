@@ -84,15 +84,38 @@ void main() {
     expect(game.hud.value.score, 2560);
   });
 
+  testWidgets('a body hit scores less than the brooch and says so', (
+    tester,
+  ) async {
+    final game = await load(tester);
+    game.releaseLauncher();
+    final boss = game.boss;
+    final ball = _ball(game);
+    // One fast step across the forehead, well clear of the brooch.
+    ball.body.setTransform(boss.position + Vector2(-3.5, -3.2), 0);
+    ball.body.linearVelocity = Vector2(120, 0);
+    game.stepEngine();
+    expect(boss.health, 16000 - boss.bodyDamage);
+    expect(boss.lastHitCritical, isFalse);
+    expect(game.hud.value.score, boss.bodyDamage);
+    expect(game.hud.value.status, contains('몸통'));
+    game.stepEngine();
+    expect(
+      game.world.children.whereType<BossDamagePopup>().single.critical,
+      isFalse,
+    );
+  });
+
   testWidgets('teleporting outside does not fabricate a previous-frame hit', (
     tester,
   ) async {
     final game = await load(tester);
     game.releaseLauncher();
     final boss = game.boss;
-    _place(game, boss.position + Vector2(0, -3));
+    // Both sides lie outside the brooch and the body.
+    _place(game, boss.position + Vector2(-6, 0));
     game.stepEngine();
-    _place(game, boss.position + Vector2(0, 3));
+    _place(game, boss.position + Vector2(6, 0));
     game.stepEngine();
     expect(boss.health, 16000);
     expect(game.hud.value.score, 0);

@@ -194,11 +194,20 @@ class MonPinballGame extends Forge2DGame with KeyboardEvents {
         ballRadius: PinballBall.radius,
       );
       if (damage > 0) {
-        _awardScore(damage, boss.position, PinballStyle.gold, '약점 격파');
+        final critical = boss.lastHitCritical;
+        _awardScore(
+          damage,
+          critical ? boss.position : _ball.position.clone(),
+          critical ? PinballStyle.gold : PinballStyle.violet,
+          critical ? '약점 격파' : '몸통 적중',
+        );
         _damagePopup?.removeFromParent();
         _damagePopup = BossDamagePopup(
           damage: damage,
-          position: boss.position + Vector2(2.2, -2.3),
+          critical: critical,
+          position: critical
+              ? boss.position + Vector2(2.2, -2.3)
+              : _ball.position + Vector2(0, -1.6),
         );
         world.add(_damagePopup!);
         if (boss.defeated) {
@@ -575,12 +584,20 @@ class BossWeakPoint extends Component {
   }
 }
 
+/// A rising damage number: gold and large for a brooch critical, lilac and
+/// smaller for a body hit.
 class BossDamagePopup extends PositionComponent {
-  BossDamagePopup({required this.damage, required super.position})
-    : super(priority: 120);
+  BossDamagePopup({
+    required this.damage,
+    required super.position,
+    this.critical = true,
+  }) : super(priority: 120);
 
   final int damage;
+  final bool critical;
   double _age = 0;
+  TextPainter? _text;
+  double _textOpacity = -1;
 
   @override
   void update(double dt) {
@@ -592,18 +609,32 @@ class BossDamagePopup extends PositionComponent {
 
   @override
   void render(Canvas canvas) {
-    final opacity = ((0.9 - _age) / 0.3).clamp(0.0, 1.0);
-    final text = TextPainter(
+    // Fade in coarse steps so the text is laid out a few times, not per frame.
+    final opacity =
+        (((0.9 - _age) / 0.3).clamp(0.0, 1.0) * 8).roundToDouble() / 8;
+    if (opacity != _textOpacity) {
+      _text?.dispose();
+      _text = _layout(opacity);
+      _textOpacity = opacity;
+    }
+    final text = _text!;
+    text.paint(canvas, Offset(-text.width / 2, -text.height / 2));
+  }
+
+  TextPainter _layout(double opacity) {
+    final color = critical ? PinballStyle.gold : const Color(0xFFD9C2FF);
+    return TextPainter(
       text: TextSpan(
         text: '−$damage',
-        children: const [
-          TextSpan(text: '\n약점 격파', style: TextStyle(fontSize: 0.8)),
+        children: [
+          if (critical)
+            const TextSpan(text: '\n약점 격파', style: TextStyle(fontSize: 0.8)),
         ],
         style: TextStyle(
-          color: PinballStyle.gold.withValues(alpha: opacity),
+          color: color.withValues(alpha: opacity),
           fontFamily: 'Rajdhani',
           fontFamilyFallback: const ['sans-serif'],
-          fontSize: 1.3,
+          fontSize: critical ? 1.3 : 0.95,
           fontWeight: FontWeight.w600,
           height: 1.1,
           shadows: const [Shadow(color: Colors.black, blurRadius: 0.2)],
@@ -612,8 +643,13 @@ class BossDamagePopup extends PositionComponent {
       textDirection: TextDirection.ltr,
       textAlign: TextAlign.center,
     )..layout();
-    text.paint(canvas, Offset(-text.width / 2, -text.height / 2));
-    text.dispose();
+  }
+
+  @override
+  void onRemove() {
+    _text?.dispose();
+    _text = null;
+    super.onRemove();
   }
 }
 

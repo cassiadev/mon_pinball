@@ -57,8 +57,55 @@ void main() {
   test('misses and ball-radius edge contacts use the moving weak point', () {
     final boss = BossEncounter()..start();
     final y = boss.position.y + 2;
-    expect(boss.checkHit(Vector2(2, y), Vector2(26, y)), 0);
+    // Just outside the brooch's reach the ball still strikes the torso.
+    expect(boss.checkHit(Vector2(2, y), Vector2(26, y)), boss.bodyDamage);
+    expect(boss.lastHitCritical, isFalse);
     expect(boss.checkHit(Vector2(2, y), Vector2(26, y), ballRadius: 0.7), 1280);
+    expect(boss.lastHitCritical, isTrue);
+    final below = boss.position.y + 6;
+    expect(boss.checkHit(Vector2(2, below), Vector2(26, below)), 0);
+  });
+
+  test('the head and torso take normal damage; the brooch is critical', () {
+    final boss = BossEncounter()..start();
+    final c = boss.position;
+    final forehead = c.y - 3.5;
+    expect(
+      boss.checkHit(Vector2(c.x - 6, forehead), Vector2(c.x + 6, forehead)),
+      boss.bodyDamage,
+    );
+    expect(boss.lastHitCritical, isFalse);
+    expect(boss.hurtProgress, 0.5);
+    expect(boss.motion, BossMotion.hurt);
+    expect(
+      boss.checkHit(Vector2(c.x - 6, c.y), Vector2(c.x + 6, c.y)),
+      boss.hitDamage,
+    );
+    expect(boss.lastHitCritical, isTrue);
+    expect(boss.hurtProgress, 1);
+    expect(boss.health, 16000 - 320 - 1280);
+  });
+
+  test('resting on the body counts once but can still find the brooch', () {
+    final boss = BossEncounter()..start();
+    final c = boss.position;
+    final head = c + Vector2(0, -3);
+    expect(boss.checkHit(head + Vector2(-6, 0), head), 320);
+    expect(boss.checkHit(head, head), 0);
+    expect(boss.checkHit(head, c), 1280);
+    expect(boss.checkHit(c, c + Vector2(8, 0)), 0);
+    expect(boss.checkHit(c + Vector2(8, 0), head), 320);
+  });
+
+  test('the skirt and sleeves never count as the body', () {
+    final boss = BossEncounter()..start();
+    final c = boss.position;
+    // Below the torso, where the skirt hangs over the jewel bumpers.
+    final skirt = c.y + 5.5;
+    expect(boss.checkHit(Vector2(c.x - 7, skirt), Vector2(c.x + 7, skirt)), 0);
+    // Out along a sleeve beside the shoulders.
+    expect(boss.checkHit(c + Vector2(-9, -1), c + Vector2(-4, -1)), 0);
+    expect(boss.health, 16000);
   });
 
   test('swept hits include movement of the boss past a stationary ball', () {
