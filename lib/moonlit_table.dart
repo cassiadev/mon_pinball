@@ -51,7 +51,6 @@ class MoonlitTable extends Component {
         ).createShader(board),
     );
     _drawGuides(canvas);
-    _drawMoon(canvas);
     canvas.restore();
 
     canvas.drawRRect(
@@ -91,14 +90,6 @@ class MoonlitTable extends Component {
         ..color = PinballStyle.gold.withValues(alpha: 0.28)
         ..strokeWidth = 0.035,
     );
-    for (final dot in const [Offset(9.8, 24), Offset(18.2, 24)]) {
-      canvas.drawCircle(dot, 0.2, Paint()..color = PinballStyle.gold);
-      canvas.drawCircle(
-        dot,
-        0.36,
-        Paint()..color = PinballStyle.gold.withValues(alpha: 0.25),
-      );
-    }
     _diamond(canvas, const Offset(centerX, 22.6), 0.32, PinballStyle.gold);
     _diamond(canvas, const Offset(centerX, 24.7), 0.24, PinballStyle.red);
     _diamond(canvas, const Offset(centerX, 44.2), 0.18, PinballStyle.gold);
@@ -121,62 +112,6 @@ class MoonlitTable extends Component {
       Offset(18.6, 36.8),
     ]) {
       _sakura(canvas, flower, 0.42);
-    }
-  }
-
-  void _drawMoon(Canvas canvas) {
-    // All central objects share x=14, independent of the right launcher lane.
-    const center = moonCenter;
-    canvas.drawCircle(center, 2.6, Paint()..color = const Color(0xE60B2633));
-    canvas.drawCircle(
-      center,
-      2.6,
-      PinballStyle.metal(Rect.fromCircle(center: center, radius: 2.6))
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 0.14,
-    );
-    canvas.save();
-    canvas.clipPath(
-      Path()..addOval(Rect.fromCircle(center: center, radius: 1.25)),
-    );
-    canvas.drawCircle(center, 1.25, Paint()..color = PinballStyle.text);
-    final wave = Paint()
-      ..color = const Color(0xFF2F5866)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 0.16;
-    for (final dy in [-0.5, 0.05, 0.6]) {
-      canvas.drawPath(
-        Path()
-          ..moveTo(center.dx - 1.4, center.dy + dy)
-          ..cubicTo(
-            center.dx - 0.4,
-            center.dy - 0.7 + dy,
-            center.dx + 0.4,
-            center.dy + 0.7 + dy,
-            center.dx + 1.4,
-            center.dy + dy,
-          ),
-        wave,
-      );
-    }
-    canvas.restore();
-    // Two reed-like ripples under the disc.
-    final ripple = Paint()
-      ..color = PinballStyle.cyan.withValues(alpha: 0.35)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 0.05;
-    for (final width in [2.4, 3.4]) {
-      canvas.drawArc(
-        Rect.fromCenter(
-          center: center + const Offset(0, 1.75),
-          width: width,
-          height: 0.6,
-        ),
-        0,
-        math.pi,
-        false,
-        ripple,
-      );
     }
   }
 }
@@ -297,6 +232,106 @@ void _sakura(Canvas canvas, Offset center, double radius) {
     radius * 0.18,
     Paint()..color = PinballStyle.gold.withValues(alpha: 0.8),
   );
+}
+
+/// The moon emblem bumper, drawn around its own centre; it brightens on hits.
+void drawMoonBumper(Canvas canvas, double radius, double flash) {
+  canvas.save();
+  canvas.scale(radius / 2.6);
+  const center = Offset.zero;
+  canvas.drawCircle(center, 2.6, Paint()..color = const Color(0xE60B2633));
+  canvas.drawCircle(
+    center,
+    2.6,
+    PinballStyle.metal(Rect.fromCircle(center: center, radius: 2.6))
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.14,
+  );
+  canvas.save();
+  canvas.clipPath(
+    Path()..addOval(Rect.fromCircle(center: center, radius: 1.25)),
+  );
+  canvas.drawCircle(center, 1.25, Paint()..color = PinballStyle.text);
+  final wave = Paint()
+    ..color = const Color(0xFF2F5866)
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 0.16;
+  for (final dy in [-0.5, 0.05, 0.6]) {
+    canvas.drawPath(
+      Path()
+        ..moveTo(center.dx - 1.4, center.dy + dy)
+        ..cubicTo(
+          center.dx - 0.4,
+          center.dy - 0.7 + dy,
+          center.dx + 0.4,
+          center.dy + 0.7 + dy,
+          center.dx + 1.4,
+          center.dy + dy,
+        ),
+      wave,
+    );
+  }
+  canvas.restore();
+  // Two reed-like ripples under the disc.
+  final ripple = Paint()
+    ..color = PinballStyle.cyan.withValues(alpha: 0.35)
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 0.05;
+  for (final width in [2.4, 3.4]) {
+    canvas.drawArc(
+      Rect.fromCenter(
+        center: center + const Offset(0, 1.75),
+        width: width,
+        height: 0.6,
+      ),
+      0,
+      math.pi,
+      false,
+      ripple,
+    );
+  }
+  if (flash > 0) {
+    canvas.drawCircle(
+      center,
+      2.95,
+      Paint()
+        ..color = PinballStyle.text.withValues(alpha: flash * 0.8)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 0.12,
+    );
+  }
+  canvas.restore();
+}
+
+/// A small gold post with a coloured lens, for the mid-field mini bumpers.
+void drawGoldPost(Canvas canvas, double radius, Color color, double flash) {
+  final bounds = Rect.fromCircle(center: Offset.zero, radius: radius);
+  canvas.drawCircle(
+    const Offset(0, 0.14),
+    radius,
+    Paint()..color = const Color(0xDD020613),
+  );
+  canvas.drawCircle(Offset.zero, radius, PinballStyle.metal(bounds));
+  canvas.drawCircle(
+    Offset.zero,
+    radius * 0.62,
+    Paint()..color = const Color(0xFF14102A),
+  );
+  canvas.drawCircle(
+    Offset.zero,
+    radius * 0.5,
+    PinballStyle.lens(bounds.deflate(radius * 0.5), color, flash),
+  );
+  if (flash > 0) {
+    canvas.drawCircle(
+      Offset.zero,
+      radius + 0.2,
+      Paint()
+        ..color = color.withValues(alpha: flash * 0.8)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 0.08,
+    );
+  }
 }
 
 /// Draw a jewel inside the physical bumper's existing circular footprint.

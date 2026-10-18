@@ -143,7 +143,7 @@ void main() {
       addTearDown(() => disposePinballScenario(tester));
       final ball = game.world.children.whereType<PinballBall>().single;
       game.releaseLauncher();
-      ball.body.setTransform(Vector2(ballX, 34), 0);
+      ball.body.setTransform(Vector2(ballX, 30), 0);
 
       game.startLauncherCharge();
       game.stepEngine();

@@ -48,7 +48,7 @@ class MonPinballGame extends Forge2DGame with KeyboardEvents {
           gameOver: false,
         ),
       ),
-      super(gravity: Vector2(0, 32), zoom: 12);
+      super(gravity: Vector2(0, 36), zoom: 12);
 
   static const double boardWidth = 28;
   static const double boardHeight = 56;
@@ -441,23 +441,53 @@ class MonPinballGame extends Forge2DGame with KeyboardEvents {
 
   List<Component> _buildBumpers() {
     return [
+      // Tight gaps between the upper jewels keep the ball rattling under the
+      // boss; each gap still passes a ball.
       Bumper(
         bumperCenter: Vector2(9.6, 13.7),
-        radius: 2.0,
+        radius: 2.2,
         points: 250,
         color: PinballStyle.yellow,
       ),
       Bumper(
         bumperCenter: Vector2(18.4, 13.7),
-        radius: 2.0,
+        radius: 2.2,
         points: 250,
         color: PinballStyle.red,
       ),
       Bumper(
         bumperCenter: Vector2(MoonlitTable.centerX, 18.1),
-        radius: 2.0,
+        radius: 2.2,
         points: 400,
         color: PinballStyle.cyan,
+      ),
+      // Gold posts break up the open mid-field.
+      Bumper(
+        bumperCenter: Vector2(9.8, 24.4),
+        radius: 1.25,
+        points: 100,
+        color: PinballStyle.gold,
+        style: BumperStyle.post,
+        kick: 16,
+      ),
+      Bumper(
+        bumperCenter: Vector2(18.2, 24.4),
+        radius: 1.25,
+        points: 100,
+        color: PinballStyle.gold,
+        style: BumperStyle.post,
+        kick: 16,
+      ),
+      // The moon emblem is a bumper on the shared centre line.
+      Bumper(
+        bumperCenter: Vector2(
+          MoonlitTable.moonCenter.dx,
+          MoonlitTable.moonCenter.dy,
+        ),
+        radius: 2.5,
+        points: 300,
+        color: PinballStyle.text,
+        style: BumperStyle.moon,
       ),
       // Mirrored bars: the left one reads as \ and the right one as /.
       Spinner(spinnerCenter: Vector2(5.75, 30.15), barAngle: 0.5, points: 150),
@@ -769,18 +799,26 @@ class Slingshot extends BodyComponent<MonPinballGame> with ContactCallbacks {
   }
 }
 
+enum BumperStyle { jewel, post, moon }
+
 class Bumper extends BodyComponent<MonPinballGame> with ContactCallbacks {
   Bumper({
     required this.bumperCenter,
     required this.radius,
     required this.points,
     required this.color,
+    this.style = BumperStyle.jewel,
+    this.kick = 22,
   }) : super(priority: 5, renderBody: false);
 
   final Vector2 bumperCenter;
   final double radius;
   final int points;
   final Color color;
+  final BumperStyle style;
+
+  /// Impulse added on contact, on top of the bouncy restitution.
+  final double kick;
   double _flash = 0;
   double _cooldown = 0;
 
@@ -804,7 +842,7 @@ class Bumper extends BodyComponent<MonPinballGame> with ContactCallbacks {
       final push = other.position - position;
       if (push.length2 > 0) {
         push.normalize();
-        other.body.applyLinearImpulse(push..scale(22));
+        other.body.applyLinearImpulse(push..scale(kick));
       }
       game.addScore(points, position, color, 'bumper');
     }
@@ -818,7 +856,11 @@ class Bumper extends BodyComponent<MonPinballGame> with ContactCallbacks {
   }
 
   @override
-  void render(Canvas canvas) => drawJewelBumper(canvas, radius, color, _flash);
+  void render(Canvas canvas) => switch (style) {
+    BumperStyle.jewel => drawJewelBumper(canvas, radius, color, _flash),
+    BumperStyle.post => drawGoldPost(canvas, radius, color, _flash),
+    BumperStyle.moon => drawMoonBumper(canvas, radius, _flash),
+  };
 }
 
 /// A pivoting bar beside the moon: hits spin it once and score.
