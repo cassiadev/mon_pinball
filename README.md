@@ -106,13 +106,10 @@ from `test/fonts/` so Korean remains readable without system fonts; this
 fixture is not included in the app. The ignored `design/` folder is reference
 material and is not required to build or run the game.
 
-## Development branches
+## Working rules
 
-Name branches by the work: `feature/`, `redesign/`, `refactor/`, or `workflow/`,
-followed by a descriptive name (for example `feature/add-moonlit-garden-boss`).
-Use the existing Conventional Commit titles (`feat:`, `fix:`, `test:`, `docs:`)
-and commit verified stages separately. Record behavior, rationale and actual
-validation in commit bodies. Merge/push only when explicitly requested.
+Branch, commit and merge rules for people and AI agents are in
+[AGENTS.md](AGENTS.md) (Korean).
 
 ## Checks
 
