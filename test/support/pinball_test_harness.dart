@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flame/components.dart';
+import 'package:flame/flame.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -76,10 +77,13 @@ Future<MonPinballGame> pumpPinballApp(
   await preparePinballTestSurface(tester);
   final game = MonPinballGame();
   currentPinballGame = game;
+  await loadPinballGameArt(tester, game);
 
   await tester.pumpWidget(MonPinballApp(gameFactory: () => game));
   await tester.pump();
-  await game.loaded;
+  // Image decoding uses real asynchronous work outside the fake physics clock.
+  await tester.runAsync(() => game.loaded);
+  await tester.pump();
 
   // Mount queued physics bodies before a test freezes the engine.
   await tester.pump(const Duration(milliseconds: 16));
@@ -88,6 +92,19 @@ Future<MonPinballGame> pumpPinballApp(
   }
   await tester.pump();
   return game;
+}
+
+/// Decode production textures before entering the widget's fake frame clock.
+Future<void> loadPinballGameArt(
+  WidgetTester tester,
+  MonPinballGame game,
+) async {
+  await tester.runAsync(() async {
+    await Future.wait([
+      game.images.load('moonlit/garden.png'),
+      Flame.images.load('moonlit/tsukibina-atlas.png'),
+    ]);
+  });
 }
 
 MonPinballGame requirePinballGame() {
@@ -100,6 +117,30 @@ MonPinballGame requirePinballGame() {
 
 Rect pinballInputRect(WidgetTester tester) {
   return tester.getRect(find.byKey(const ValueKey('pinball-input-surface')));
+}
+
+/// The mockup's instruments take about an eighth of a phone screen. They must
+/// stay under 14% of the height, and the table fills the space left below in
+/// width or height. Device runs include real system-bar insets, so this checks
+/// proportions rather than a fixed host pixel width.
+void expectCompactInstrumentsLeaveTheTable(WidgetTester tester) {
+  final table = pinballInputRect(tester);
+  final screen = tester.getRect(find.byType(Scaffold));
+  final insets = MediaQuery.paddingOf(tester.element(find.byType(Scaffold)));
+  expect(table.top - screen.top - insets.top, lessThan(screen.height * 0.14));
+  final room = tester.getRect(
+    find
+        .ancestor(
+          of: find.byKey(const ValueKey('pinball-input-surface')),
+          matching: find.byType(Center),
+        )
+        .first,
+  );
+  expect(
+    table.width >= room.width - 0.5 || table.height >= room.height - 0.5,
+    isTrue,
+  );
+  expect(table.width, greaterThan(screen.width * 0.85));
 }
 
 Offset playfieldPosition(WidgetTester tester, String side) {

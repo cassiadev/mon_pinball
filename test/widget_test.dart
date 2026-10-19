@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mon_pinball/main.dart';
 import 'package:mon_pinball/pinball_game.dart';
 
 import 'support/pinball_test_harness.dart';
@@ -10,8 +9,8 @@ void main() {
   setUpAll(loadPinballTestFont);
 
   testWidgets('pinball app renders HUD', (WidgetTester tester) async {
-    await tester.pumpWidget(const MonPinballApp());
-    await tester.pump();
+    await pumpPinballApp(tester, pauseGame: true);
+    addTearDown(() => disposePinballScenario(tester));
 
     expect(find.text('MON PINBALL'), findsOneWidget);
     expect(find.byKey(const ValueKey('pinball-lives')), findsOneWidget);
@@ -30,14 +29,19 @@ void main() {
     expect(score.bottom, lessThanOrEqualTo(table.top));
     expect(status.bottom, lessThanOrEqualTo(table.top));
     expect(find.text('다시 시작'), findsOneWidget);
-    expect(table.width / table.height, closeTo(28 / 48, 0.001));
+    expect(
+      table.width / table.height,
+      closeTo(MonPinballGame.boardWidth / MonPinballGame.boardHeight, 0.001),
+    );
   });
 
-  testWidgets('portrait table fills the available width', (tester) async {
+  testWidgets('portrait table fills the space under compact instruments', (
+    tester,
+  ) async {
     await pumpPinballApp(tester, pauseGame: true);
     addTearDown(() => disposePinballScenario(tester));
 
-    expect(pinballInputRect(tester).width, greaterThanOrEqualTo(350));
+    expectCompactInstrumentsLeaveTheTable(tester);
   });
 
   testWidgets('narrow instruments show full status and an eight digit score', (
@@ -94,6 +98,36 @@ void main() {
     expect(game.hud.value.status, 'Launched');
     expect(tester.takeException(), isNull);
   });
+
+  // Landscape at large text once overflowed the balls/combo and boss health
+  // rows by 22 and 45 px and squeezed the health bar to nothing.
+  for (final layout in const [
+    (Size(568, 320), 2.0),
+    (Size(568, 320), 1.5),
+    (Size(1280, 800), 2.0),
+    (Size(320, 568), 2.0),
+    (Size(390, 844), 2.0),
+  ]) {
+    testWidgets(
+      'instruments fit and keep a readable health bar at ${layout.$1} and '
+      '${layout.$2}x text',
+      (tester) async {
+        await pumpPinballApp(tester, pauseGame: true);
+        addTearDown(() => disposePinballScenario(tester));
+        await tester.binding.setSurfaceSize(layout.$1);
+        tester.platformDispatcher.textScaleFactorTestValue = layout.$2;
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+        await tester.pump();
+
+        expect(tester.takeException(), isNull);
+        final bar = tester.getSize(
+          find.byKey(const ValueKey('pinball-boss-health')),
+        );
+        expect(bar.width, greaterThanOrEqualTo(96));
+        expect(find.byKey(const ValueKey('pinball-combo')), findsOneWidget);
+      },
+    );
+  }
 
   for (final layout in const [(Size(568, 320), 1.0), (Size(320, 568), 2.0)]) {
     testWidgets(

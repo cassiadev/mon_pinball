@@ -46,3 +46,6 @@ app.*.map.json
 
 # Local design files
 /design/
+
+# Local work plans and feedback notes
+/docs/superpowers/

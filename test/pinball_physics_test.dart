@@ -18,13 +18,12 @@ void main() {
 
     expect(game.hud.value.lives, 3);
     expect(game.hud.value.gameOver, isFalse);
-    expect(ball.position.x, closeTo(25, 0.001));
-    expect(ball.position.y, closeTo(43, 0.001));
+    expect(ball.position.distanceTo(game.launchPosition), lessThan(0.001));
 
     game.nudge();
     _advancePhysics(game, 5);
 
-    expect(ball.position.y, closeTo(43, 0.001));
+    expect(ball.position.y, closeTo(game.launchPosition.y, 0.001));
     expect(game.hud.value.lives, 3);
   });
 
@@ -41,21 +40,32 @@ void main() {
 
       expect(game.hud.value.launchCharge, 1);
       expect(game.hud.value.lives, remainingLives + 1);
-      expect(ball.position.y, closeTo(43, 0.001));
+      // The waiting ball rides the plunger head down as it is pulled.
+      expect(ball.body.bodyType, BodyType.static);
+      expect(
+        ball.position.y,
+        closeTo(game.launchPosition.y + MonPinballGame.plungerTravel, 0.001),
+      );
 
       game.setLauncherDragCharge(0.75);
       _advancePhysics(game, 5);
       expect(game.hud.value.launchCharge, 0.75);
-      expect(ball.position.y, closeTo(43, 0.001));
+      expect(
+        ball.position.y,
+        closeTo(
+          game.launchPosition.y + MonPinballGame.plungerTravel * 0.75,
+          0.001,
+        ),
+      );
 
       game.releaseLauncher();
       game.stepEngine();
       expect(game.hud.value.status, 'Launched');
-      expect(ball.position.y, lessThan(43));
+      expect(ball.position.y, lessThan(game.launchPosition.y));
       expect(ball.body.linearVelocity.y, lessThan(0));
 
       // Send the launched ball through the drain without a random playthrough.
-      ball.body.setTransform(Vector2(14, 53), 0);
+      ball.body.setTransform(Vector2(14, MonPinballGame.boardHeight + 5), 0);
       ball.body.linearVelocity = Vector2.zero();
       game.stepEngine();
       expect(game.hud.value.lives, remainingLives);
@@ -63,14 +73,14 @@ void main() {
 
       _advancePhysics(game, 30);
       expect(game.hud.value.lives, remainingLives);
-      expect(ball.position.y, closeTo(43, 0.001));
+      expect(ball.position.y, closeTo(game.launchPosition.y, 0.001));
     }
 
     game.restartGame();
     _advancePhysics(game, 30);
     expect(game.hud.value.lives, 3);
     expect(game.hud.value.gameOver, isFalse);
-    expect(ball.position.y, closeTo(43, 0.001));
+    expect(ball.position.y, closeTo(game.launchPosition.y, 0.001));
   });
 
   testWidgets('restarting a moving ball restores launch waiting state', (
@@ -81,19 +91,18 @@ void main() {
     final ball = game.world.children.whereType<PinballBall>().single;
     game.releaseLauncher();
     _advancePhysics(game, 0.2);
-    expect(ball.position.y, lessThan(43));
+    expect(ball.position.y, lessThan(game.launchPosition.y));
 
     game.restartGame();
     _advancePhysics(game, 30);
 
     expect(game.hud.value.lives, 3);
     expect(game.hud.value.status, 'Drag right plunger');
-    expect(ball.position.x, closeTo(25, 0.001));
-    expect(ball.position.y, closeTo(43, 0.001));
+    expect(ball.position.distanceTo(game.launchPosition), lessThan(0.001));
 
     game.releaseLauncher();
     game.stepEngine();
-    expect(ball.position.y, lessThan(43));
+    expect(ball.position.y, lessThan(game.launchPosition.y));
   });
 
   for (final (label, charge) in const [('minimum', 0.0), ('full', 1.0)]) {
@@ -126,7 +135,7 @@ void main() {
     });
   }
 
-  for (final ballX in [25.0, 14.0]) {
+  for (final ballX in [25.65, 14.0]) {
     testWidgets('launcher cannot boost an airborne ball at x=$ballX', (
       tester,
     ) async {
@@ -134,7 +143,7 @@ void main() {
       addTearDown(() => disposePinballScenario(tester));
       final ball = game.world.children.whereType<PinballBall>().single;
       game.releaseLauncher();
-      ball.body.setTransform(Vector2(ballX, 34), 0);
+      ball.body.setTransform(Vector2(ballX, 30), 0);
 
       game.startLauncherCharge();
       game.stepEngine();
