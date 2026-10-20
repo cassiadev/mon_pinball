@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=mon_pinball
+Exec=@BINARY_NAME@
+Icon=@APPLICATION_ID@
+Terminal=false
+Categories=Game;ArcadeGame;
+StartupWMClass=@APPLICATION_ID@
