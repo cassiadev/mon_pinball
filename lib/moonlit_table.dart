@@ -114,7 +114,7 @@ class MoonlitTable extends Component {
     );
     canvas.drawRRect(
       playfield,
-      PinballStyle.metal(board)
+      PinballStyle.createMetalPaint(board)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 0.32,
     );
@@ -142,9 +142,9 @@ class MoonlitTable extends Component {
         ..color = PinballStyle.gold.withValues(alpha: 0.28)
         ..strokeWidth = 0.035,
     );
-    _diamond(canvas, const Offset(centerX, 22.6), 0.32, PinballStyle.gold);
-    _diamond(canvas, const Offset(centerX, 24.7), 0.24, PinballStyle.red);
-    _diamond(canvas, const Offset(centerX, 44.2), 0.18, PinballStyle.gold);
+    _drawDiamond(canvas, const Offset(centerX, 22.6), 0.32, PinballStyle.gold);
+    _drawDiamond(canvas, const Offset(centerX, 24.7), 0.24, PinballStyle.red);
+    _drawDiamond(canvas, const Offset(centerX, 44.2), 0.18, PinballStyle.gold);
     // Hanging lamps above the two spinners.
     for (final lamp in const [(5.75, 24.6, 28.6), (20.7, 22.4, 28.6)]) {
       canvas.drawLine(
@@ -154,7 +154,7 @@ class MoonlitTable extends Component {
           ..color = PinballStyle.gold.withValues(alpha: 0.45)
           ..strokeWidth = 0.03,
       );
-      _diamond(canvas, Offset(lamp.$1, lamp.$2), 0.34, PinballStyle.text);
+      _drawDiamond(canvas, Offset(lamp.$1, lamp.$2), 0.34, PinballStyle.text);
     }
     for (final flower in const [
       Offset(4.6, 26.6),
@@ -163,7 +163,7 @@ class MoonlitTable extends Component {
       Offset(9.4, 36.8),
       Offset(18.6, 36.8),
     ]) {
-      _sakura(canvas, flower, 0.42);
+      _drawSakura(canvas, flower, 0.42);
     }
   }
 }
@@ -199,7 +199,7 @@ class TableTrim extends Component {
         ..style = PaintingStyle.stroke
         ..strokeWidth = 0.06,
     );
-    _stud(canvas, const Offset(centerX, -0.55), 0.3);
+    _drawStud(canvas, const Offset(centerX, -0.55), 0.3);
 
     for (final rivet in const [
       Offset(1.1, 17.5),
@@ -233,17 +233,19 @@ class TableTrim extends Component {
         ..strokeWidth = 0.16
         ..strokeCap = StrokeCap.round,
     );
-    _stud(canvas, const Offset(24.4, 21), 0.24);
+    _drawStud(canvas, const Offset(24.4, 21), 0.24);
   }
 
   static const double centerX = MoonlitTable.centerX;
 }
 
-void _stud(Canvas canvas, Offset center, double radius) {
+void _drawStud(Canvas canvas, Offset center, double radius) {
   canvas.drawCircle(
     center,
     radius,
-    PinballStyle.metal(Rect.fromCircle(center: center, radius: radius)),
+    PinballStyle.createMetalPaint(
+      Rect.fromCircle(center: center, radius: radius),
+    ),
   );
   canvas.drawCircle(
     center - Offset(radius, radius) * 0.3,
@@ -252,7 +254,7 @@ void _stud(Canvas canvas, Offset center, double radius) {
   );
 }
 
-void _diamond(Canvas canvas, Offset center, double size, Color color) {
+void _drawDiamond(Canvas canvas, Offset center, double size, Color color) {
   final path = Path()
     ..moveTo(center.dx, center.dy - size)
     ..lineTo(center.dx + size * 0.7, center.dy)
@@ -269,7 +271,7 @@ void _diamond(Canvas canvas, Offset center, double size, Color color) {
   );
 }
 
-void _sakura(Canvas canvas, Offset center, double radius) {
+void _drawSakura(Canvas canvas, Offset center, double radius) {
   final petal = Paint()..color = const Color(0xFF9C7DC4).withValues(alpha: 0.7);
   for (var i = 0; i < 5; i++) {
     final a = -math.pi / 2 + i * math.pi * 2 / 5;
@@ -295,7 +297,7 @@ void drawMoonBumper(Canvas canvas, double radius, double flash) {
   canvas.drawCircle(
     center,
     2.6,
-    PinballStyle.metal(Rect.fromCircle(center: center, radius: 2.6))
+    PinballStyle.createMetalPaint(Rect.fromCircle(center: center, radius: 2.6))
       ..style = PaintingStyle.stroke
       ..strokeWidth = 0.14,
   );
@@ -363,7 +365,7 @@ void drawGoldPost(Canvas canvas, double radius, Color color, double flash) {
     radius,
     Paint()..color = const Color(0xDD020613),
   );
-  canvas.drawCircle(Offset.zero, radius, PinballStyle.metal(bounds));
+  canvas.drawCircle(Offset.zero, radius, PinballStyle.createMetalPaint(bounds));
   canvas.drawCircle(
     Offset.zero,
     radius * 0.62,
@@ -372,7 +374,7 @@ void drawGoldPost(Canvas canvas, double radius, Color color, double flash) {
   canvas.drawCircle(
     Offset.zero,
     radius * 0.5,
-    PinballStyle.lens(bounds.deflate(radius * 0.5), color, flash),
+    PinballStyle.createLensPaint(bounds.deflate(radius * 0.5), color, flash),
   );
   if (flash > 0) {
     canvas.drawCircle(
@@ -444,7 +446,7 @@ void drawJewelBumper(Canvas canvas, double radius, Color color, double flash) {
   canvas.drawCircle(
     Offset.zero,
     radius * 0.42,
-    PinballStyle.lens(lens, color, flash),
+    PinballStyle.createLensPaint(lens, color, flash),
   );
   if (flash > 0) {
     canvas.drawCircle(

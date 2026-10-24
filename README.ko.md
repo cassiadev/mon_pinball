@@ -329,7 +329,7 @@ sequenceDiagram
 | `update(dt)` | 보스 이동과 타격 판정, 시간 기반 발사 충전, 공 이탈과 발사대 복귀 감지 |
 | `boardToViewport()` | 정적 메서드. 게임판 좌표를 Flutter 오버레이용 게임 위젯 좌표로 변환 |
 | `isLauncherTouch()` | 화면 좌표를 월드 좌표로 변환해 발사대 영역인지 확인 |
-| `launcherChargeFromDrag()` | 아래로 끈 거리를 `0.0..1.0` 충전량으로 변환 |
+| `calculateLauncherDragCharge()` | 아래로 끈 거리를 `0.0..1.0` 충전량으로 변환 |
 | `setLauncherDragCharge()` | 끌어서 만든 충전량을 저장하고 발사대 머리와 대기 중인 공을 아래로 이동 |
 | `releaseLauncher()` | 발사대에서 대기 중인 공에만 발사 속도를 적용하고 보스 공격 시작 |
 | `addScore()` | 점수와 콤보 갱신 및 파동 효과 생성 |
@@ -437,7 +437,7 @@ sequenceDiagram
     HUD->>Game: startLauncherCharge(timed: false)
     HUD->>Game: setLauncherDragCharge(0)
     User->>HUD: drag downward
-    HUD->>Game: launcherChargeFromDrag(start, current)
+    HUD->>Game: calculateLauncherDragCharge(start, current)
     HUD->>Game: setLauncherDragCharge(charge)
     Game->>Ball: ride the plunger head down
     User->>HUD: pointer up

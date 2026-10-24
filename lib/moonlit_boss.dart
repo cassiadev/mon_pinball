@@ -119,20 +119,20 @@ class MoonlitBoss extends Component {
     canvas.scale(size, size);
 
     final wing = breath * 0.06 + opening * 0.22 - hurt * 0.18;
-    _part(canvas, atlas, _leftWing, -wing + 0.03 * drift, 0.94 * fade);
-    _part(canvas, atlas, _rightWing, wing + 0.03 * drift, 0.94 * fade);
+    _renderPart(canvas, atlas, _leftWing, -wing + 0.03 * drift, 0.94 * fade);
+    _renderPart(canvas, atlas, _rightWing, wing + 0.03 * drift, 0.94 * fade);
     // The trailing fabric lags behind both flight and the attack gesture.
-    _part(
+    _renderPart(
       canvas,
       atlas,
       _skirt,
       math.sin(time * 2.1 - 0.7) * 0.03 + drift * 0.02,
       fade,
     );
-    _part(canvas, atlas, _body, 0, fade);
+    _renderPart(canvas, atlas, _body, 0, fade);
     final sleeve = math.sin(time * 2.1 - 0.4) * 0.04 + opening * 0.26;
-    _part(canvas, atlas, _leftSleeve, sleeve - hurt * 0.14, fade);
-    _part(canvas, atlas, _rightSleeve, -sleeve + hurt * 0.14, fade);
+    _renderPart(canvas, atlas, _leftSleeve, sleeve - hurt * 0.14, fade);
+    _renderPart(canvas, atlas, _rightSleeve, -sleeve + hurt * 0.14, fade);
     if (encounter.defeated) _renderDefeatFlash(canvas, exit);
     canvas.restore();
   }
@@ -166,7 +166,7 @@ class MoonlitBoss extends Component {
     }
   }
 
-  void _part(
+  void _renderPart(
     Canvas canvas,
     Image atlas,
     _Rig rig,

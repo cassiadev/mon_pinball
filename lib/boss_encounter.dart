@@ -190,10 +190,10 @@ class BossEncounter {
     double radiusX,
     double radiusY,
   ) {
-    Vector2 local(Vector2 point) =>
+    Vector2 toLocal(Vector2 point) =>
         Vector2((point.x - center.x) / radiusX, (point.y - center.y) / radiusY);
-    final a = local(start);
-    final b = local(end);
+    final a = toLocal(start);
+    final b = toLocal(end);
     final segment = b - a;
     final fraction = segment.length2 == 0
         ? 0.0

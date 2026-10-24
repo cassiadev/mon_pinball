@@ -336,7 +336,7 @@ Important methods:
 | `update(dt)` | Boss motion and hit checks, timed launcher charge, drain and re-arm detection |
 | `boardToViewport()` | Static; maps a board point into game widget coordinates for Flutter overlays |
 | `isLauncherTouch()` | Converts screen coordinate to world coordinate and checks plunger zone |
-| `launcherChargeFromDrag()` | Converts downward drag distance into charge `0.0..1.0` |
+| `calculateLauncherDragCharge()` | Converts downward drag distance into charge `0.0..1.0` |
 | `setLauncherDragCharge()` | Stores the drag charge and moves the plunger head and waiting ball down |
 | `releaseLauncher()` | Launches only the ball waiting at the plunger and starts the boss |
 | `addScore()` | Updates score and combo and spawns a pulse effect |
@@ -444,7 +444,7 @@ sequenceDiagram
     HUD->>Game: startLauncherCharge(timed: false)
     HUD->>Game: setLauncherDragCharge(0)
     User->>HUD: drag downward
-    HUD->>Game: launcherChargeFromDrag(start, current)
+    HUD->>Game: calculateLauncherDragCharge(start, current)
     HUD->>Game: setLauncherDragCharge(charge)
     Game->>Ball: ride the plunger head down
     User->>HUD: pointer up
