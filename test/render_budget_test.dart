@@ -15,23 +15,23 @@ void main() {
     final game = await pumpPinballApp(tester, pauseGame: true);
     addTearDown(() => disposePinballScenario(tester));
     final table = game.world.children.whereType<MoonlitTable>().single;
-    Future<void> frame() async {
+    Future<void> pumpFrame() async {
       game.stepEngine(stepTime: 0);
       await tester.pump();
     }
 
-    await frame();
+    await pumpFrame();
     final first = table.bakedArt;
     expect(first, isNotNull);
     for (var i = 0; i < 3; i++) {
-      await frame();
+      await pumpFrame();
       expect(identical(table.bakedArt, first), isTrue);
     }
 
     // A new zoom needs a sharper or smaller copy of the art.
     await tester.binding.setSurfaceSize(const Size(568, 320));
-    await frame();
-    await frame();
+    await pumpFrame();
+    await pumpFrame();
     expect(table.bakedArt, isNotNull);
     expect(identical(table.bakedArt, first), isFalse);
   });

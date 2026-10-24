@@ -152,7 +152,7 @@ void main() {
       ball.body.linearVelocity = Vector2(4, 6);
       ball.body.angularVelocity = 2;
       for (var tap = 0; tap < 5; tap++) {
-        final gesture = await tester.startGesture(plungerPosition(tester));
+        final gesture = await tester.startGesture(findPlungerPosition(tester));
         await gesture.moveBy(const Offset(0, 80));
         await gesture.up();
       }

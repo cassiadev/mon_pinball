@@ -19,7 +19,7 @@ void main() {
     ) async {
       final game = await pumpPinballApp(tester, pauseGame: true);
       addTearDown(() => disposePinballScenario(tester));
-      final ball = _ball(game);
+      final ball = _findBall(game);
       game.releaseLauncher();
 
       final lane = MonPinballGame.launchLane;
@@ -52,7 +52,7 @@ void main() {
   ) async {
     final game = await pumpPinballApp(tester, pauseGame: true);
     addTearDown(() => disposePinballScenario(tester));
-    final ball = _ball(game);
+    final ball = _findBall(game);
     final stuck = <String>[];
 
     for (var y = 3.0; y < MonPinballGame.boardHeight - 1; y += 1.5) {
@@ -95,5 +95,5 @@ void main() {
   });
 }
 
-PinballBall _ball(MonPinballGame game) =>
+PinballBall _findBall(MonPinballGame game) =>
     game.world.children.whereType<PinballBall>().single;

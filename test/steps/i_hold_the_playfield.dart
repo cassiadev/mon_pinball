@@ -6,7 +6,7 @@ import '../support/pinball_test_harness.dart';
 Future<void> iHoldThePlayfield(WidgetTester tester, dynamic side) async {
   final target = side as String;
   currentPinballGesture = await tester.startGesture(
-    playfieldPosition(tester, target),
+    findPlayfieldPosition(tester, target),
   );
   currentGestureTarget = target;
   await tester.pump();
