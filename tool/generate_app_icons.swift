@@ -34,7 +34,7 @@ func render(_ size: Int, opaque: Bool = false, _ draw: (CGContext, CGRect) -> Vo
     return context.makeImage()!
 }
 
-func png(_ image: CGImage) -> Data {
+func encodePNG(_ image: CGImage) -> Data {
     let data = NSMutableData()
     let destination = CGImageDestinationCreateWithData(data, UTType.png.identifier as CFString, 1, nil)!
     CGImageDestinationAddImage(destination, image, nil)
@@ -49,7 +49,7 @@ func write(_ data: Data, _ path: String) throws {
 }
 
 func save(_ image: CGImage, _ path: String) throws {
-    try write(png(image), path)
+    try write(encodePNG(image), path)
 }
 
 // Keep the supplied file untouched. Normalize its uneven outer canvas without
@@ -92,14 +92,14 @@ for index in queue {
 }
 let source = tileContext.makeImage()!
 
-func fullBleed(_ size: Int) -> CGImage {
+func renderFullBleedIcon(_ size: Int) -> CGImage {
     render(size, opaque: true) { context, bounds in context.draw(source, in: bounds) }
 }
 
 // The supplied moon, ball and flippers fit within radius 0.52. Include a guard;
 // the outer flowers, tassels and gold clouds are decorative maskable background.
 let artworkRadius: CGFloat = 0.54
-func radialIcon(_ size: Int, radius: CGFloat, opaque: Bool) -> CGImage {
+func renderRadialIcon(_ size: Int, radius: CGFloat, opaque: Bool) -> CGImage {
     render(size, opaque: opaque) { context, bounds in
         let side = CGFloat(size) * radius / artworkRadius
         let rect = CGRect(x: (bounds.width - side) / 2, y: (bounds.height - side) / 2,
@@ -108,7 +108,7 @@ func radialIcon(_ size: Int, radius: CGFloat, opaque: Bool) -> CGImage {
     }
 }
 
-func desktopIcon(_ size: Int) -> CGImage {
+func renderDesktopIcon(_ size: Int) -> CGImage {
     render(size) { context, bounds in
         // Traditional desktop icon canvas: 80% tile, transparent outer margin.
         let tile = bounds.insetBy(dx: bounds.width * 0.10, dy: bounds.height * 0.10)
@@ -117,15 +117,15 @@ func desktopIcon(_ size: Int) -> CGImage {
     }
 }
 
-try save(fullBleed(1024), "build/app-icons/master-1024.png")
-try save(desktopIcon(1024), "build/app-icons/desktop-1024.png")
-try save(fullBleed(512), "build/app-icons/play-store-512.png")
+try save(renderFullBleedIcon(1024), "build/app-icons/master-1024.png")
+try save(renderDesktopIcon(1024), "build/app-icons/desktop-1024.png")
+try save(renderFullBleedIcon(512), "build/app-icons/play-store-512.png")
 
 for (density, scale) in [("mdpi", 1.0), ("hdpi", 1.5), ("xhdpi", 2.0), ("xxhdpi", 3.0), ("xxxhdpi", 4.0)] {
     let directory = "android/app/src/main/res/mipmap-\(density)"
-    try save(fullBleed(Int(48 * scale)), "\(directory)/ic_launcher.png")
+    try save(renderFullBleedIcon(Int(48 * scale)), "\(directory)/ic_launcher.png")
     // 32dp radius leaves a 1dp guard inside Android's 66dp safe circle.
-    try save(radialIcon(Int(108 * scale), radius: 32 / 108, opaque: true),
+    try save(renderRadialIcon(Int(108 * scale), radius: 32 / 108, opaque: true),
              "\(directory)/ic_launcher_foreground.png")
 }
 
@@ -138,7 +138,7 @@ func updateCatalog(_ path: String, desktop: Bool) throws {
         let pointSize = Double(image["size"]!.split(separator: "x")[0])!
         let scale = Double(image["scale"]!.dropLast())!
         let pixels = Int((pointSize * scale).rounded())
-        try save(desktop ? desktopIcon(pixels) : fullBleed(pixels), "\(path)/\(filename)")
+        try save(desktop ? renderDesktopIcon(pixels) : renderFullBleedIcon(pixels), "\(path)/\(filename)")
     }
 }
 
@@ -146,38 +146,38 @@ try updateCatalog("ios/Runner/Assets.xcassets/AppIcon.appiconset", desktop: fals
 try updateCatalog("macos/Runner/Assets.xcassets/AppIcon.appiconset", desktop: true)
 
 // ICO is a small directory of PNG frames, supported by modern Windows.
-func littleEndian<T: FixedWidthInteger>(_ value: T) -> Data {
+func encodeLittleEndian<T: FixedWidthInteger>(_ value: T) -> Data {
     var little = value.littleEndian
     return withUnsafeBytes(of: &little) { Data($0) }
 }
 let windowsSizes = [16, 20, 24, 32, 40, 48, 64, 128, 256]
-let frames = windowsSizes.map { png(desktopIcon($0)) }
-var ico = littleEndian(UInt16(0)) + littleEndian(UInt16(1)) + littleEndian(UInt16(frames.count))
+let frames = windowsSizes.map { encodePNG(renderDesktopIcon($0)) }
+var ico = encodeLittleEndian(UInt16(0)) + encodeLittleEndian(UInt16(1)) + encodeLittleEndian(UInt16(frames.count))
 var offset = 6 + frames.count * 16
 for (size, frame) in zip(windowsSizes, frames) {
     ico.append(contentsOf: [UInt8(size == 256 ? 0 : size), UInt8(size == 256 ? 0 : size), 0, 0])
-    ico.append(littleEndian(UInt16(1)))
-    ico.append(littleEndian(UInt16(32)))
-    ico.append(littleEndian(UInt32(frame.count)))
-    ico.append(littleEndian(UInt32(offset)))
+    ico.append(encodeLittleEndian(UInt16(1)))
+    ico.append(encodeLittleEndian(UInt16(32)))
+    ico.append(encodeLittleEndian(UInt32(frame.count)))
+    ico.append(encodeLittleEndian(UInt32(offset)))
     offset += frame.count
 }
 for frame in frames { ico.append(frame) }
 try write(ico, "windows/runner/resources/app_icon.ico")
-try save(desktopIcon(512), "linux/runner/resources/app_icon.png")
+try save(renderDesktopIcon(512), "linux/runner/resources/app_icon.png")
 
 for size in [192, 512] {
-    try save(fullBleed(size), "web/icons/Icon-\(size).png")
+    try save(renderFullBleedIcon(size), "web/icons/Icon-\(size).png")
     // Web maskable icons guarantee a centered circle of radius 40%.
-    try save(radialIcon(size, radius: 0.39, opaque: true), "web/icons/Icon-maskable-\(size).png")
+    try save(renderRadialIcon(size, radius: 0.39, opaque: true), "web/icons/Icon-maskable-\(size).png")
 }
-try save(fullBleed(180), "web/icons/apple-touch-icon.png")
-try save(fullBleed(32), "web/favicon.png")
+try save(renderFullBleedIcon(180), "web/icons/apple-touch-icon.png")
+try save(renderFullBleedIcon(32), "web/favicon.png")
 
 let iconset = "build/app-icons/MonPinball.iconset"
 for points in [16, 32, 128, 256, 512] {
-    try save(desktopIcon(points), "\(iconset)/icon_\(points)x\(points).png")
-    try save(desktopIcon(points * 2), "\(iconset)/icon_\(points)x\(points)@2x.png")
+    try save(renderDesktopIcon(points), "\(iconset)/icon_\(points)x\(points).png")
+    try save(renderDesktopIcon(points * 2), "\(iconset)/icon_\(points)x\(points)@2x.png")
 }
 let iconutil = Process()
 iconutil.executableURL = URL(fileURLWithPath: "/usr/bin/iconutil")

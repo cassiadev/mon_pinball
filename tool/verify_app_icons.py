@@ -16,7 +16,7 @@ with Image.open(ROOT / "assets/app_icon/source.png") as supplied:
 core_radius = 0.54
 
 
-def approved_artwork(icon, artwork_fraction=1):
+def assert_approved_artwork(icon, artwork_fraction=1):
     """Compare the rendered interior with the upload, including garden details."""
     size = icon.width
     side = size * artwork_fraction
@@ -44,7 +44,7 @@ def approved_artwork(icon, artwork_fraction=1):
     assert count and error / count < 24, ("Artwork differs from user upload", size, error / max(count, 1))
 
 
-def image(path, size, opaque=False, artwork_fraction=1):
+def verify_icon(path, size, opaque=False, artwork_fraction=1):
     path = ROOT / path
     with Image.open(path) as opened:
         opened.verify()
@@ -54,7 +54,7 @@ def image(path, size, opaque=False, artwork_fraction=1):
             assert "A" not in opened.getbands(), f"Unexpected alpha channel: {path}"
         result = opened.convert("RGBA")
     checked.add(path)
-    approved_artwork(result, artwork_fraction)
+    assert_approved_artwork(result, artwork_fraction)
     return result
 
 
@@ -63,18 +63,18 @@ for platform in ("ios", "macos"):
     content = json.loads((ROOT / catalog / "Contents.json").read_text())
     for item in content["images"]:
         size = round(float(item["size"].split("x")[0]) * float(item["scale"][:-1]))
-        icon = image(catalog / item["filename"], size, opaque=platform == "ios",
-                     artwork_fraction=0.8 if platform == "macos" else 1)
+        icon = verify_icon(catalog / item["filename"], size, opaque=platform == "ios",
+                           artwork_fraction=0.8 if platform == "macos" else 1)
         if platform == "macos":
             assert icon.getpixel((0, 0))[3] == 0, "Desktop margin must be transparent"
             assert icon.getpixel((size // 2, size // 2))[3] == 255
 
 for density, scale in (("mdpi", 1), ("hdpi", 1.5), ("xhdpi", 2), ("xxhdpi", 3), ("xxxhdpi", 4)):
     folder = Path("android/app/src/main/res") / f"mipmap-{density}"
-    image(folder / "ic_launcher.png", round(48 * scale), opaque=True)
+    verify_icon(folder / "ic_launcher.png", round(48 * scale), opaque=True)
     size = round(108 * scale)
-    foreground = image(folder / "ic_launcher_foreground.png", size, opaque=True,
-                       artwork_fraction=(32 / 108) / core_radius)
+    foreground = verify_icon(folder / "ic_launcher_foreground.png", size, opaque=True,
+                             artwork_fraction=(32 / 108) / core_radius)
     assert foreground.getpixel((0, 0))[:3] == (12, 5, 64)
     # Decorative background can enter the mask area; bright gold, ivory and
     # jade game pieces must remain inside the protected circle.
@@ -111,15 +111,15 @@ manifest = json.loads((ROOT / "web/manifest.json").read_text())
 assert manifest["theme_color"] == manifest["background_color"] == "#0C0540"
 for item in manifest["icons"]:
     size = int(item["sizes"].split("x")[0])
-    icon = image(Path("web") / item["src"], size, opaque=True,
-                 artwork_fraction=0.39 / core_radius if item.get("purpose") == "maskable" else 1)
+    icon = verify_icon(Path("web") / item["src"], size, opaque=True,
+                       artwork_fraction=0.39 / core_radius if item.get("purpose") == "maskable" else 1)
     if item.get("purpose") == "maskable":
         assert icon.getpixel((0, 0))[:3] == (12, 5, 64)
-image("web/icons/apple-touch-icon.png", 180, opaque=True)
-image("web/favicon.png", 32, opaque=True)
-image("build/app-icons/master-1024.png", 1024, opaque=True)
-image("build/app-icons/play-store-512.png", 512, opaque=True)
-image("linux/runner/resources/app_icon.png", 512, artwork_fraction=0.8)
+verify_icon("web/icons/apple-touch-icon.png", 180, opaque=True)
+verify_icon("web/favicon.png", 32, opaque=True)
+verify_icon("build/app-icons/master-1024.png", 1024, opaque=True)
+verify_icon("build/app-icons/play-store-512.png", 512, opaque=True)
+verify_icon("linux/runner/resources/app_icon.png", 512, artwork_fraction=0.8)
 
 with Image.open(ROOT / "windows/runner/resources/app_icon.ico") as ico:
     expected = {(size, size) for size in (16, 20, 24, 32, 40, 48, 64, 128, 256)}
@@ -127,10 +127,10 @@ with Image.open(ROOT / "windows/runner/resources/app_icon.ico") as ico:
     for size in expected:
         frame = ico.ico.getimage(size)
         assert frame.size == size
-        approved_artwork(frame.convert("RGBA"), 0.8)
+        assert_approved_artwork(frame.convert("RGBA"), 0.8)
 with Image.open(ROOT / "build/app-icons/MonPinball.icns") as icns:
     assert icns.size == (1024, 1024)
     icns.load()
-    approved_artwork(icns.convert("RGBA"), 0.8)
+    assert_approved_artwork(icns.convert("RGBA"), 0.8)
 
 print(f"PASS: {len(checked)} PNG files, 9 Windows frames, macOS ICNS, Apple catalogs, Android safe zones and web manifest.")
