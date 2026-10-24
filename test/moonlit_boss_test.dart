@@ -67,16 +67,15 @@ void main() {
     await boss.onLoad();
     final atlas = Flame.images.fromCache('moonlit/tsukibina-atlas.png');
     final pixels = (await atlas.toByteData())!;
-    int decodeAlpha(int x, int y) =>
-        pixels.getUint8((y * atlas.width + x) * 4 + 3);
+    int alphaAt(int x, int y) => pixels.getUint8((y * atlas.width + x) * 4 + 3);
     // Cell 4 starts at (512, 512); the sleeve is cropped at local x = 448.
     for (var y = 512; y < 1024; y++) {
-      expect(decodeAlpha(512 + 448, y), lessThan(17));
+      expect(alphaAt(512 + 448, y), lessThan(17));
     }
     var hem = 0;
     for (var y = 512; y < 1024; y++) {
       for (var x = 512 + 462; x < 1024; x++) {
-        if (decodeAlpha(x, y) > 16) hem++;
+        if (alphaAt(x, y) > 16) hem++;
       }
     }
     expect(hem, greaterThan(1000));
