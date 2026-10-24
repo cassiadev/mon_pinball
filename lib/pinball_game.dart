@@ -188,7 +188,7 @@ class MonPinballGame extends Forge2DGame with KeyboardEvents {
     _scorePulses.removeWhere((pulse) => pulse.parent == null);
 
     if (from != null && boss.active && !_gameOver) {
-      final damage = boss.checkHit(
+      final damage = boss.takeHit(
         from,
         _ball.position,
         ballRadius: PinballBall.radius,

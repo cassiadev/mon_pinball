@@ -125,7 +125,7 @@ void main() {
       await boss.onLoad();
       final before = await _render(boss, encounter);
       final center = encounter.position;
-      encounter.checkHit(center - Vector2(8, 0), center);
+      encounter.takeHit(center - Vector2(8, 0), center);
       final hurt = await _render(boss, encounter);
       expect(
         _countChangedPixels(before, hurt, 100, 130, 500, 500),
@@ -161,8 +161,8 @@ void main() {
       final before = await _render(boss, encounter);
       for (var hit = 0; hit < 13; hit++) {
         final center = encounter.position;
-        encounter.checkHit(center - Vector2(8, 0), center);
-        encounter.checkHit(center, center + Vector2(8, 0));
+        encounter.takeHit(center - Vector2(8, 0), center);
+        encounter.takeHit(center, center + Vector2(8, 0));
       }
       expect(encounter.defeated, isTrue);
       // The exit starts from the full figure plus the brooch flash.

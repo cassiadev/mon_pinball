@@ -305,7 +305,7 @@ sequenceDiagram
     Game->>Game: boss.update(dt), remember ball position
     Game->>World: physics step
     World->>World: resolve contacts and score callbacks
-    Game->>Game: boss.checkHit(previous, current ball position)
+    Game->>Game: boss.takeHit(previous, current ball position)
     Game->>Game: timed charge, drain or re-arm check
     Game->>HUD: ValueNotifier update when state changes
     GameWidget->>Game: render(canvas)
@@ -381,7 +381,7 @@ This keeps interface concerns out of the physics classes.
 16,000 health (`maxHealth`) and follows a fixed path around `(14, 8.6)`.
 `start()` begins the attack cycle on launch, `pause()` ends it on a drain or
 re-arm, and `reset()` restores the whole encounter. `update(dt)` advances its
-clock and recomputes the decorative petals. `checkHit()` is described under
+clock and recomputes the decorative petals. `takeHit()` is described under
 [Collision And Scoring](#collision-and-scoring).
 
 ### Physics Components
@@ -597,7 +597,7 @@ sequenceDiagram
 Boss hits do not use contact callbacks: the boss has no body, so the ball
 passes through her. `update(dt)` remembers the ball position before the
 physics step and then calls
-`BossEncounter.checkHit(from, to, ballRadius: PinballBall.radius)`. The
+`BossEncounter.takeHit(from, to, ballRadius: PinballBall.radius)`. The
 segment is measured relative to the boss, so her own movement since the last
 frame counts too.
 
@@ -610,7 +610,7 @@ sequenceDiagram
 
   Game->>Game: remember ball position
   Game->>World: physics step
-  Game->>Boss: checkHit(from, to, ballRadius)
+  Game->>Boss: takeHit(from, to, ballRadius)
   Boss->>Boss: sweep the brooch circle and head/torso ellipse
   Boss-->>Game: 1280, 320 or 0 damage
   Game->>Game: score += damage, combo += 1

@@ -298,7 +298,7 @@ sequenceDiagram
     Game->>Game: boss.update(dt), remember ball position
     Game->>World: physics step
     World->>World: resolve contacts and score callbacks
-    Game->>Game: boss.checkHit(previous, current ball position)
+    Game->>Game: boss.takeHit(previous, current ball position)
     Game->>Game: timed charge, drain or re-arm check
     Game->>HUD: ValueNotifier update when state changes
     GameWidget->>Game: render(canvas)
@@ -374,7 +374,7 @@ sequenceDiagram
 체력은 16,000(`maxHealth`)이며 `(14, 8.6)` 주변의 정해진 경로를 따라
 움직입니다. `start()`는 발사할 때 공격 주기를 시작하고, `pause()`는 공 소실이나
 발사대 복귀 때 주기를 멈추며, `reset()`은 보스전 전체를 초기화합니다.
-`update(dt)`는 시간을 진행하고 장식용 꽃잎을 다시 계산합니다. `checkHit()`은
+`update(dt)`는 시간을 진행하고 장식용 꽃잎을 다시 계산합니다. `takeHit()`은
 [충돌과 점수 계산](#충돌과-점수-계산)에서 설명합니다.
 
 ### 물리 컴포넌트
@@ -590,7 +590,7 @@ sequenceDiagram
 
 보스 타격은 접촉 콜백을 쓰지 않습니다. 보스에는 물리 바디가 없어 공이 그대로
 통과합니다. `update(dt)`가 물리 단계 전의 공 위치를 기억해 두고, 단계가 끝나면
-`BossEncounter.checkHit(from, to, ballRadius: PinballBall.radius)`를
+`BossEncounter.takeHit(from, to, ballRadius: PinballBall.radius)`를
 호출합니다. 이동 구간은 보스 기준 상대 좌표로 계산하므로 지난 프레임 이후의
 보스 이동도 반영합니다.
 
@@ -603,7 +603,7 @@ sequenceDiagram
 
   Game->>Game: remember ball position
   Game->>World: physics step
-  Game->>Boss: checkHit(from, to, ballRadius)
+  Game->>Boss: takeHit(from, to, ballRadius)
   Boss->>Boss: sweep the brooch circle and head/torso ellipse
   Boss-->>Game: 1280, 320 or 0 damage
   Game->>Game: score += damage, combo += 1
