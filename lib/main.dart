@@ -139,17 +139,17 @@ class _GardenBackdrop extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (game.images.containsKey(_key)) {
-      return _paint(game.images.fromCache(_key));
+      return _buildBackdrop(game.images.fromCache(_key));
     }
     return FutureBuilder<ui.Image>(
       future: game.images.load(_key),
       builder: (context, snapshot) => snapshot.hasData
-          ? _paint(snapshot.data!)
+          ? _buildBackdrop(snapshot.data!)
           : const ColoredBox(color: PinballStyle.background),
     );
   }
 
-  Widget _paint(ui.Image image) =>
+  Widget _buildBackdrop(ui.Image image) =>
       CustomPaint(painter: _BackdropPainter(image));
 }
 
@@ -263,7 +263,7 @@ class _PinballHudState extends State<PinballHud> {
       return;
     }
 
-    final charge = widget.game.launcherChargeFromDrag(
+    final charge = widget.game.calculateLauncherDragCharge(
       startScreenPosition: drag.startPosition,
       currentScreenPosition: localPosition,
     );
@@ -322,7 +322,7 @@ class _TableLabels extends StatelessWidget {
       color: PinballStyle.text.withValues(alpha: 0.9),
       shadows: const [Shadow(color: Colors.black, offset: Offset(0, 1))],
     );
-    Widget caption(Offset board, Widget child) {
+    Widget buildCaption(Offset board, Widget child) {
       final at = MonPinballGame.boardToViewport(board, size);
       return Positioned(
         left: at.dx - unit * 4,
@@ -332,7 +332,7 @@ class _TableLabels extends StatelessWidget {
       );
     }
 
-    Widget arrow(AxisDirection direction) => Padding(
+    Widget buildArrow(AxisDirection direction) => Padding(
       padding: EdgeInsets.symmetric(horizontal: unit * 0.2),
       child: CustomPaint(
         size: Size.square(unit * 0.8),
@@ -347,14 +347,14 @@ class _TableLabels extends StatelessWidget {
           child: Stack(
             key: const ValueKey('pinball-controls-hint'),
             children: [
-              caption(
+              buildCaption(
                 const Offset(8.3, 53.95),
                 Column(
                   children: [
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        arrow(AxisDirection.left),
+                        buildArrow(AxisDirection.left),
                         Text('왼쪽', style: style),
                       ],
                     ),
@@ -362,7 +362,7 @@ class _TableLabels extends StatelessWidget {
                   ],
                 ),
               ),
-              caption(
+              buildCaption(
                 const Offset(19.7, 53.95),
                 Column(
                   children: [
@@ -370,21 +370,21 @@ class _TableLabels extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text('오른쪽', style: style),
-                        arrow(AxisDirection.right),
+                        buildArrow(AxisDirection.right),
                       ],
                     ),
                     Text('플리퍼', style: style),
                   ],
                 ),
               ),
-              caption(
+              buildCaption(
                 Offset(
                   MonPinballGame.launchLane.center.dx - 0.45,
                   MonPinballGame.launchLane.bottom + 5.9,
                 ),
                 Column(
                   children: [
-                    arrow(AxisDirection.up),
+                    buildArrow(AxisDirection.up),
                     Text('당겨서 발사', style: style, softWrap: false),
                   ],
                 ),
@@ -850,8 +850,8 @@ class _BossHealth extends StatelessWidget {
           const fixed = 7 + 6 + 19 + 6 + 6 + 7.0;
           final labels =
               fixed +
-              _textWidth(context, '츠키비나', _nameStyle) +
-              _textWidth(context, '남은 체력', _labelStyle);
+              _measureTextWidth(context, '츠키비나', _nameStyle) +
+              _measureTextWidth(context, '남은 체력', _labelStyle);
           if (constraints.maxWidth - labels >= _minInlineBar) {
             // The mockup row: name, label and bar between two ornaments.
             return Row(
@@ -906,7 +906,11 @@ class _BossHealth extends StatelessWidget {
     );
   }
 
-  static double _textWidth(BuildContext context, String text, TextStyle style) {
+  static double _measureTextWidth(
+    BuildContext context,
+    String text,
+    TextStyle style,
+  ) {
     final painter = TextPainter(
       text: TextSpan(
         text: text,

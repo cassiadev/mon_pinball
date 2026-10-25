@@ -141,7 +141,7 @@ class BossEncounter {
   /// The relative segment includes the boss's movement since the last update.
   /// A brooch crossing is critical and takes priority over the body. Each zone
   /// counts a continuous overlap once, until the ball ends outside it.
-  int checkHit(Vector2 from, Vector2 to, {double ballRadius = 0.55}) {
+  int takeHit(Vector2 from, Vector2 to, {double ballRadius = 0.55}) {
     if (!active || defeated || !ballRadius.isFinite || ballRadius < 0) {
       return 0;
     }
@@ -190,10 +190,10 @@ class BossEncounter {
     double radiusX,
     double radiusY,
   ) {
-    Vector2 local(Vector2 point) =>
+    Vector2 toLocal(Vector2 point) =>
         Vector2((point.x - center.x) / radiusX, (point.y - center.y) / radiusY);
-    final a = local(start);
-    final b = local(end);
+    final a = toLocal(start);
+    final b = toLocal(end);
     final segment = b - a;
     final fraction = segment.length2 == 0
         ? 0.0

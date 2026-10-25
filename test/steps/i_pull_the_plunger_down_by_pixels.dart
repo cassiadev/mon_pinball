@@ -7,7 +7,9 @@ Future<void> iPullThePlungerDownByPixels(
   WidgetTester tester,
   num param1,
 ) async {
-  currentPinballGesture = await tester.startGesture(plungerPosition(tester));
+  currentPinballGesture = await tester.startGesture(
+    findPlungerPosition(tester),
+  );
   currentGestureTarget = 'plunger';
   await tester.pump();
   await currentPinballGesture!.moveBy(Offset(0, param1.toDouble()));

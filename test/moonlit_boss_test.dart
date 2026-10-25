@@ -26,10 +26,10 @@ void main() {
 
       final frame = await _render(boss, encounter);
       // The brooch is at the physical weak point; the face is above it.
-      expect(_goldPixels(frame, 290, 290, 310, 310), greaterThan(150));
-      expect(_opaquePixels(frame, 285, 210, 315, 235), greaterThan(500));
+      expect(_countGoldPixels(frame, 290, 290, 310, 310), greaterThan(150));
+      expect(_countOpaquePixels(frame, 285, 210, 315, 235), greaterThan(500));
       // Atlas padding must not turn the board into six rectangular pictures.
-      expect(_opaquePixels(frame, 0, 130, 25, 160), 0);
+      expect(_countOpaquePixels(frame, 0, 130, 25, 160), 0);
     },
   );
 
@@ -38,7 +38,7 @@ void main() {
     final boss = MoonlitBoss(encounter);
     await boss.onLoad();
     final frame = await _render(boss, encounter);
-    final bounds = _opaqueBounds(frame);
+    final bounds = _findOpaqueBounds(frame);
     // The finished figure spreads wide like the mockup instead of a thin
     // column: wings and sleeves span far more than the body is tall.
     expect(bounds.width / bounds.height, greaterThan(1.1));
@@ -55,7 +55,7 @@ void main() {
       encounter.update(0.5);
       final breathing = await _render(boss, encounter);
       expect(
-        _changedPixels(first, breathing, 80, 140, 250, 450),
+        _countChangedPixels(first, breathing, 80, 140, 250, 450),
         greaterThan(500),
       );
     },
@@ -67,15 +67,15 @@ void main() {
     await boss.onLoad();
     final atlas = Flame.images.fromCache('moonlit/tsukibina-atlas.png');
     final pixels = (await atlas.toByteData())!;
-    int alpha(int x, int y) => pixels.getUint8((y * atlas.width + x) * 4 + 3);
+    int alphaAt(int x, int y) => pixels.getUint8((y * atlas.width + x) * 4 + 3);
     // Cell 4 starts at (512, 512); the sleeve is cropped at local x = 448.
     for (var y = 512; y < 1024; y++) {
-      expect(alpha(512 + 448, y), lessThan(17));
+      expect(alphaAt(512 + 448, y), lessThan(17));
     }
     var hem = 0;
     for (var y = 512; y < 1024; y++) {
       for (var x = 512 + 462; x < 1024; x++) {
-        if (alpha(x, y) > 16) hem++;
+        if (alphaAt(x, y) > 16) hem++;
       }
     }
     expect(hem, greaterThan(1000));
@@ -95,13 +95,13 @@ void main() {
       final idleFrame = await _render(idleBoss, idle);
       final attackFrame = await _render(attackBoss, attacking);
       expect(
-        _changedPixels(idleFrame, attackFrame, 70, 120, 260, 450),
+        _countChangedPixels(idleFrame, attackFrame, 70, 120, 260, 450),
         greaterThan(2000),
       );
       idle.update(0.5);
       attacking.update(0.5);
       expect(
-        _changedPixels(
+        _countChangedPixels(
           await _render(attackBoss, attacking),
           await _render(idleBoss, idle),
           70,
@@ -124,13 +124,13 @@ void main() {
       await boss.onLoad();
       final before = await _render(boss, encounter);
       final center = encounter.position;
-      encounter.checkHit(center - Vector2(8, 0), center);
+      encounter.takeHit(center - Vector2(8, 0), center);
       final hurt = await _render(boss, encounter);
       expect(
-        _changedPixels(before, hurt, 100, 130, 500, 500),
+        _countChangedPixels(before, hurt, 100, 130, 500, 500),
         greaterThan(2000),
       );
-      expect(_goldPixels(hurt, 290, 290, 310, 310), greaterThan(150));
+      expect(_countGoldPixels(hurt, 290, 290, 310, 310), greaterThan(150));
     },
   );
 
@@ -145,7 +145,7 @@ void main() {
       encounter.pause();
       final cleared = await _render(petals, encounter);
       expect(
-        _changedPixels(burst, cleared, 0, 300, 600, 600),
+        _countChangedPixels(burst, cleared, 0, 300, 600, 600),
         greaterThan(200),
       );
     },
@@ -160,31 +160,34 @@ void main() {
       final before = await _render(boss, encounter);
       for (var hit = 0; hit < 13; hit++) {
         final center = encounter.position;
-        encounter.checkHit(center - Vector2(8, 0), center);
-        encounter.checkHit(center, center + Vector2(8, 0));
+        encounter.takeHit(center - Vector2(8, 0), center);
+        encounter.takeHit(center, center + Vector2(8, 0));
       }
       expect(encounter.defeated, isTrue);
       // The exit starts from the full figure plus the brooch flash.
       final flash = await _render(boss, encounter);
       expect(
-        _count(flash, 0, 0, 600, 600, (i) => flash[i + 3] > 30),
+        _countPixels(flash, 0, 0, 600, 600, (i) => flash[i + 3] > 30),
         greaterThan(
-          _count(before, 0, 0, 600, 600, (i) => before[i + 3] > 30) ~/ 2,
+          _countPixels(before, 0, 0, 600, 600, (i) => before[i + 3] > 30) ~/ 2,
         ),
       );
       encounter.update(BossEncounter.defeatDuration * 0.6);
       final fading = await _render(boss, encounter);
       expect(
-        _opaquePixels(fading, 0, 0, 600, 600),
-        lessThan(_opaquePixels(before, 0, 0, 600, 600) ~/ 3),
+        _countOpaquePixels(fading, 0, 0, 600, 600),
+        lessThan(_countOpaquePixels(before, 0, 0, 600, 600) ~/ 3),
       );
       encounter.update(BossEncounter.defeatDuration);
       final gone = await _render(boss, encounter);
-      expect(_count(gone, 0, 0, 600, 600, (i) => gone[i + 3] > 0), 0);
+      expect(_countPixels(gone, 0, 0, 600, 600, (i) => gone[i + 3] > 0), 0);
 
       encounter.reset();
       final restored = await _render(boss, encounter);
-      expect(_opaquePixels(restored, 280, 280, 320, 320), greaterThan(500));
+      expect(
+        _countOpaquePixels(restored, 280, 280, 320, 320),
+        greaterThan(500),
+      );
     },
   );
 }
@@ -208,20 +211,21 @@ Future<Uint8List> _render(Component layer, BossEncounter encounter) async {
   return bytes;
 }
 
-int _goldPixels(Uint8List frame, int x0, int y0, int x1, int y1) => _count(
-  frame,
-  x0,
-  y0,
-  x1,
-  y1,
-  (i) =>
-      frame[i] > 140 &&
-      frame[i + 1] > 100 &&
-      frame[i + 2] < 170 &&
-      frame[i + 3] > 200,
-);
+int _countGoldPixels(Uint8List frame, int x0, int y0, int x1, int y1) =>
+    _countPixels(
+      frame,
+      x0,
+      y0,
+      x1,
+      y1,
+      (i) =>
+          frame[i] > 140 &&
+          frame[i + 1] > 100 &&
+          frame[i + 2] < 170 &&
+          frame[i + 3] > 200,
+    );
 
-ui.Rect _opaqueBounds(Uint8List frame) {
+ui.Rect _findOpaqueBounds(Uint8List frame) {
   var left = 600, top = 600, right = 0, bottom = 0;
   for (var y = 0; y < 600; y++) {
     for (var x = 0; x < 600; x++) {
@@ -241,25 +245,31 @@ ui.Rect _opaqueBounds(Uint8List frame) {
   );
 }
 
-int _opaquePixels(Uint8List frame, int x0, int y0, int x1, int y1) =>
-    _count(frame, x0, y0, x1, y1, (i) => frame[i + 3] > 200);
+int _countOpaquePixels(Uint8List frame, int x0, int y0, int x1, int y1) =>
+    _countPixels(frame, x0, y0, x1, y1, (i) => frame[i + 3] > 200);
 
-int _changedPixels(Uint8List a, Uint8List b, int x0, int y0, int x1, int y1) =>
-    _count(
-      a,
-      x0,
-      y0,
-      x1,
-      y1,
-      (i) =>
-          (a[i] - b[i]).abs() +
-              (a[i + 1] - b[i + 1]).abs() +
-              (a[i + 2] - b[i + 2]).abs() +
-              (a[i + 3] - b[i + 3]).abs() >
-          50,
-    );
+int _countChangedPixels(
+  Uint8List a,
+  Uint8List b,
+  int x0,
+  int y0,
+  int x1,
+  int y1,
+) => _countPixels(
+  a,
+  x0,
+  y0,
+  x1,
+  y1,
+  (i) =>
+      (a[i] - b[i]).abs() +
+          (a[i + 1] - b[i + 1]).abs() +
+          (a[i + 2] - b[i + 2]).abs() +
+          (a[i + 3] - b[i + 3]).abs() >
+      50,
+);
 
-int _count(
+int _countPixels(
   Uint8List frame,
   int x0,
   int y0,

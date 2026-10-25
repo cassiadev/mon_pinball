@@ -22,7 +22,7 @@ void main() {
     await pumpPinballApp(tester, pauseGame: true);
     addTearDown(() => disposePinballScenario(tester));
 
-    final table = pinballInputRect(tester);
+    final table = findPinballInputRect(tester);
     final score = tester.getRect(find.byKey(const ValueKey('pinball-score')));
     final status = tester.getRect(find.byKey(const ValueKey('pinball-status')));
 
@@ -69,7 +69,7 @@ void main() {
       expect(status.didExceedMaxLines, isFalse);
       expect(find.bySemanticsLabel('점수 12345678점'), findsOneWidget);
       expect(tester.takeException(), isNull);
-      expect(pinballInputRect(tester).height, greaterThan(200));
+      expect(findPinballInputRect(tester).height, greaterThan(200));
     } finally {
       semantics.dispose();
     }
@@ -84,12 +84,12 @@ void main() {
     await tester.binding.setSurfaceSize(const Size(1280, 800));
     await tester.pump();
 
-    final table = pinballInputRect(tester);
+    final table = findPinballInputRect(tester);
     final score = tester.getRect(find.byKey(const ValueKey('pinball-score')));
     expect(score.left, greaterThanOrEqualTo(table.right));
     expect(game.hud.value.score, 750);
 
-    final gesture = await tester.startGesture(plungerPosition(tester));
+    final gesture = await tester.startGesture(findPlungerPosition(tester));
     await gesture.moveBy(const Offset(0, 50));
     await tester.pump();
     expect(game.hud.value.launchCharge, greaterThan(0));
@@ -141,9 +141,9 @@ void main() {
         await tester.pump();
 
         expect(tester.takeException(), isNull);
-        expect(pinballInputRect(tester).height, greaterThanOrEqualTo(200));
+        expect(findPinballInputRect(tester).height, greaterThanOrEqualTo(200));
         final gesture = await tester.startGesture(
-          playfieldPosition(tester, 'left'),
+          findPlayfieldPosition(tester, 'left'),
         );
         expect(game.isLeftFlipperPressed, isTrue);
         await gesture.up();

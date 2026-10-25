@@ -13,7 +13,7 @@ void main() {
     expect(boss.motion, BossMotion.idle);
     expect(boss.active, isFalse);
     expect(boss.petals, isEmpty);
-    expect(boss.checkHit(Vector2(0, 10), Vector2(28, 10)), 0);
+    expect(boss.takeHit(Vector2(0, 10), Vector2(28, 10)), 0);
     expect(boss.health, 16000);
   });
 
@@ -35,7 +35,7 @@ void main() {
 
   test('fast segment crossing damages even when both endpoints miss', () {
     final boss = BossEncounter()..start();
-    expect(boss.checkHit(Vector2(2, 10), Vector2(26, 10)), 1280);
+    expect(boss.takeHit(Vector2(2, 10), Vector2(26, 10)), 1280);
     expect(boss.health, 14720);
     expect(boss.motion, BossMotion.hurt);
     expect(boss.hurtProgress, 1);
@@ -47,10 +47,10 @@ void main() {
   test('continuous overlap counts once until the ball leaves the sensor', () {
     final boss = BossEncounter()..start();
     final center = boss.position;
-    expect(boss.checkHit(center, center), 1280);
-    expect(boss.checkHit(center, center), 0);
-    expect(boss.checkHit(center, Vector2(26, 10)), 0);
-    expect(boss.checkHit(Vector2(26, 10), center), 1280);
+    expect(boss.takeHit(center, center), 1280);
+    expect(boss.takeHit(center, center), 0);
+    expect(boss.takeHit(center, Vector2(26, 10)), 0);
+    expect(boss.takeHit(Vector2(26, 10), center), 1280);
     expect(boss.health, 13440);
   });
 
@@ -58,12 +58,12 @@ void main() {
     final boss = BossEncounter()..start();
     final y = boss.position.y + 2;
     // Just outside the brooch's reach the ball still strikes the torso.
-    expect(boss.checkHit(Vector2(2, y), Vector2(26, y)), boss.bodyDamage);
+    expect(boss.takeHit(Vector2(2, y), Vector2(26, y)), boss.bodyDamage);
     expect(boss.lastHitCritical, isFalse);
-    expect(boss.checkHit(Vector2(2, y), Vector2(26, y), ballRadius: 0.7), 1280);
+    expect(boss.takeHit(Vector2(2, y), Vector2(26, y), ballRadius: 0.7), 1280);
     expect(boss.lastHitCritical, isTrue);
     final below = boss.position.y + 6;
-    expect(boss.checkHit(Vector2(2, below), Vector2(26, below)), 0);
+    expect(boss.takeHit(Vector2(2, below), Vector2(26, below)), 0);
   });
 
   test('the head and torso take normal damage; the brooch is critical', () {
@@ -71,14 +71,14 @@ void main() {
     final c = boss.position;
     final forehead = c.y - 3.5;
     expect(
-      boss.checkHit(Vector2(c.x - 6, forehead), Vector2(c.x + 6, forehead)),
+      boss.takeHit(Vector2(c.x - 6, forehead), Vector2(c.x + 6, forehead)),
       boss.bodyDamage,
     );
     expect(boss.lastHitCritical, isFalse);
     expect(boss.hurtProgress, 0.5);
     expect(boss.motion, BossMotion.hurt);
     expect(
-      boss.checkHit(Vector2(c.x - 6, c.y), Vector2(c.x + 6, c.y)),
+      boss.takeHit(Vector2(c.x - 6, c.y), Vector2(c.x + 6, c.y)),
       boss.hitDamage,
     );
     expect(boss.lastHitCritical, isTrue);
@@ -90,11 +90,11 @@ void main() {
     final boss = BossEncounter()..start();
     final c = boss.position;
     final head = c + Vector2(0, -3);
-    expect(boss.checkHit(head + Vector2(-6, 0), head), 320);
-    expect(boss.checkHit(head, head), 0);
-    expect(boss.checkHit(head, c), 1280);
-    expect(boss.checkHit(c, c + Vector2(8, 0)), 0);
-    expect(boss.checkHit(c + Vector2(8, 0), head), 320);
+    expect(boss.takeHit(head + Vector2(-6, 0), head), 320);
+    expect(boss.takeHit(head, head), 0);
+    expect(boss.takeHit(head, c), 1280);
+    expect(boss.takeHit(c, c + Vector2(8, 0)), 0);
+    expect(boss.takeHit(c + Vector2(8, 0), head), 320);
   });
 
   test('the skirt and sleeves never count as the body', () {
@@ -102,9 +102,9 @@ void main() {
     final c = boss.position;
     // Below the torso, where the skirt hangs over the jewel bumpers.
     final skirt = c.y + 5.5;
-    expect(boss.checkHit(Vector2(c.x - 7, skirt), Vector2(c.x + 7, skirt)), 0);
+    expect(boss.takeHit(Vector2(c.x - 7, skirt), Vector2(c.x + 7, skirt)), 0);
     // Out along a sleeve beside the shoulders.
-    expect(boss.checkHit(c + Vector2(-9, -1), c + Vector2(-4, -1)), 0);
+    expect(boss.takeHit(c + Vector2(-9, -1), c + Vector2(-4, -1)), 0);
     expect(boss.health, 16000);
   });
 
@@ -117,14 +117,14 @@ void main() {
     boss.start();
     boss.update(5.71);
     expect(boss.position.distanceTo(ball), greaterThan(reach));
-    expect(boss.checkHit(ball, ball, ballRadius: 0.1), 1280);
+    expect(boss.takeHit(ball, ball, ballRadius: 0.1), 1280);
   });
 
   test('pause clears petals and collision latch while preserving health', () {
     final boss = BossEncounter()..start();
     boss.update(3.2);
     final center = boss.position;
-    expect(boss.checkHit(center, center), 1280);
+    expect(boss.takeHit(center, center), 1280);
     boss.pause();
     expect(boss.active, isFalse);
     expect(boss.petals, isEmpty);
@@ -132,9 +132,9 @@ void main() {
     boss.update(20);
     expect(boss.petals, isEmpty);
     expect(boss.health, 14720);
-    expect(boss.checkHit(boss.position, boss.position), 0);
+    expect(boss.takeHit(boss.position, boss.position), 0);
     boss.start();
-    expect(boss.checkHit(boss.position, boss.position), 1280);
+    expect(boss.takeHit(boss.position, boss.position), 1280);
     boss.update(1);
     expect(boss.petals, isEmpty);
   });
@@ -145,8 +145,8 @@ void main() {
     var totalDamage = 0;
     for (var hit = 0; hit < 13; hit++) {
       final center = boss.position;
-      totalDamage += boss.checkHit(center - Vector2(10, 0), center);
-      boss.checkHit(center, center + Vector2(10, 0));
+      totalDamage += boss.takeHit(center - Vector2(10, 0), center);
+      boss.takeHit(center, center + Vector2(10, 0));
     }
     expect(totalDamage, 16000);
     expect(boss.health, 0);
@@ -165,7 +165,7 @@ void main() {
     expect(boss.motion, BossMotion.defeated);
     expect(boss.petals, isEmpty);
     expect(boss.active, isFalse);
-    expect(boss.checkHit(Vector2(0, 10), Vector2(28, 10)), 0);
+    expect(boss.takeHit(Vector2(0, 10), Vector2(28, 10)), 0);
     boss.reset();
     expect(boss.health, 16000);
     expect(boss.defeated, isFalse);
@@ -176,7 +176,7 @@ void main() {
     expect(boss.position.y, closeTo(8.6, 1e-6));
     expect(boss.motion, BossMotion.idle);
     boss.start();
-    expect(boss.checkHit(boss.position, boss.position), 1280);
+    expect(boss.takeHit(boss.position, boss.position), 1280);
   });
 
   test('petals curve in two fans and expire within a bounded board area', () {

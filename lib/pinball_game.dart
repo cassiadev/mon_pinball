@@ -80,8 +80,8 @@ class MonPinballGame extends Forge2DGame with KeyboardEvents {
     // so a rolling ball drops onto the flipper instead of cradling beside it.
     Vector2(7.1, 50.95),
     Vector2(1.1, 44),
-    ..._arc(Vector2(5.1, 4.6), math.pi, math.pi * 1.5),
-    ..._arc(Vector2(22.9, 4.6), math.pi * 1.5, math.pi * 2),
+    ..._buildArc(Vector2(5.1, 4.6), math.pi, math.pi * 1.5),
+    ..._buildArc(Vector2(22.9, 4.6), math.pi * 1.5, math.pi * 2),
     Vector2(26.9, launchLane.bottom),
     Vector2(launchLane.left, launchLane.bottom),
   ];
@@ -94,7 +94,7 @@ class MonPinballGame extends Forge2DGame with KeyboardEvents {
     Vector2(20.9, 50.95),
   ];
 
-  static List<Vector2> _arc(Vector2 center, double from, double to) => [
+  static List<Vector2> _buildArc(Vector2 center, double from, double to) => [
     for (var i = 0; i <= 8; i++)
       center +
           Vector2(
@@ -163,7 +163,7 @@ class MonPinballGame extends Forge2DGame with KeyboardEvents {
     _launcherView = LauncherView();
     world.add(_launcherView);
 
-    _ball = PinballBall(startPosition: _launchPosition());
+    _ball = PinballBall(startPosition: launchPosition);
     world.add(_ball);
 
     _emitHud();
@@ -188,7 +188,7 @@ class MonPinballGame extends Forge2DGame with KeyboardEvents {
     _scorePulses.removeWhere((pulse) => pulse.parent == null);
 
     if (from != null && boss.active && !_gameOver) {
-      final damage = boss.checkHit(
+      final damage = boss.takeHit(
         from,
         _ball.position,
         ballRadius: PinballBall.radius,
@@ -304,7 +304,7 @@ class MonPinballGame extends Forge2DGame with KeyboardEvents {
         worldPosition.y <= boardHeight;
   }
 
-  double launcherChargeFromDrag({
+  double calculateLauncherDragCharge({
     required Offset startScreenPosition,
     required Offset currentScreenPosition,
   }) {
@@ -555,15 +555,13 @@ class MonPinballGame extends Forge2DGame with KeyboardEvents {
       return;
     }
     _ball.body.setType(BodyType.static);
-    _ball.body.setTransform(_launchPosition(), 0);
+    _ball.body.setTransform(launchPosition, 0);
     _ball.body.linearVelocity = Vector2.zero();
     _ball.body.angularVelocity = 0;
   }
 
   Vector2 get launchPosition =>
       Vector2(launchLane.center.dx, launchLane.bottom - PinballBall.radius);
-
-  Vector2 _launchPosition() => launchPosition;
 
   void _emitHud() {
     hud.value = PinballSnapshot(
@@ -644,14 +642,14 @@ class BossDamagePopup extends PositionComponent {
         (((0.9 - _age) / 0.3).clamp(0.0, 1.0) * 8).roundToDouble() / 8;
     if (opacity != _textOpacity) {
       _text?.dispose();
-      _text = _layout(opacity);
+      _text = _buildText(opacity);
       _textOpacity = opacity;
     }
     final text = _text!;
     text.paint(canvas, Offset(-text.width / 2, -text.height / 2));
   }
 
-  TextPainter _layout(double opacity) {
+  TextPainter _buildText(double opacity) {
     final color = critical ? PinballStyle.gold : const Color(0xFFD9C2FF);
     return TextPainter(
       text: TextSpan(
@@ -705,7 +703,7 @@ class TableWall extends BodyComponent<MonPinballGame> {
     return path;
   }();
 
-  static Paint _stroke(Color color, double width) => Paint()
+  static Paint _createStrokePaint(Color color, double width) => Paint()
     ..color = color
     ..style = PaintingStyle.stroke
     ..strokeWidth = width
@@ -715,12 +713,12 @@ class TableWall extends BodyComponent<MonPinballGame> {
   // Widening translucent strokes stand in for a blurred glow, which would
   // cost a board-sized offscreen pass every frame.
   static final _layers = [
-    _stroke(PinballStyle.neon.withValues(alpha: 0.1), 0.62),
-    _stroke(PinballStyle.neon.withValues(alpha: 0.22), 0.36),
-    _stroke(PinballStyle.neon, 0.13),
-    _stroke(const Color(0xFFE7ECFF), 0.04),
+    _createStrokePaint(PinballStyle.neon.withValues(alpha: 0.1), 0.62),
+    _createStrokePaint(PinballStyle.neon.withValues(alpha: 0.22), 0.36),
+    _createStrokePaint(PinballStyle.neon, 0.13),
+    _createStrokePaint(const Color(0xFFE7ECFF), 0.04),
   ];
-  static final _shadow = _stroke(const Color(0xCC020612), 0.42);
+  static final _shadow = _createStrokePaint(const Color(0xCC020612), 0.42);
 
   @override
   void render(Canvas canvas) {
@@ -778,10 +776,10 @@ class Slingshot extends BodyComponent<MonPinballGame> with ContactCallbacks {
       Paint()..color = const Color(0xDD020613),
     );
     // A gold setting around a faceted glass face, as in the table mockup.
-    canvas.drawPath(path, PinballStyle.metal(bounds));
+    canvas.drawPath(path, PinballStyle.createMetalPaint(bounds));
     final inset = [for (final point in points) center + (point - center) * 0.8];
     final face = Path()..addPolygon(inset, true);
-    canvas.drawPath(face, PinballStyle.lens(bounds, color, _flash));
+    canvas.drawPath(face, PinballStyle.createLensPaint(bounds, color, _flash));
     final facet = Paint()
       ..color = Colors.white.withValues(alpha: 0.32 + _flash * 0.45)
       ..strokeWidth = 0.045;
@@ -940,7 +938,10 @@ class Spinner extends BodyComponent<MonPinballGame> with ContactCallbacks {
       capsule.shift(const Offset(0, 0.15)),
       Paint()..color = const Color(0xDD030712),
     );
-    canvas.drawRRect(capsule, PinballStyle.lens(bounds, PinballStyle.cyan, 0));
+    canvas.drawRRect(
+      capsule,
+      PinballStyle.createLensPaint(bounds, PinballStyle.cyan, 0),
+    );
     canvas.drawRRect(
       capsule,
       Paint()
@@ -1058,7 +1059,7 @@ class DropTarget extends BodyComponent<MonPinballGame> with ContactCallbacks {
       );
       canvas.drawRRect(
         RRect.fromRectAndRadius(cap, const Radius.circular(0.12)),
-        PinballStyle.metal(cap),
+        PinballStyle.createMetalPaint(cap),
       );
     }
   }
@@ -1174,7 +1175,7 @@ class Flipper extends BodyComponent<MonPinballGame> {
     );
     canvas.drawPath(
       shape,
-      PinballStyle.lens(
+      PinballStyle.createLensPaint(
         shape.getBounds(),
         PinballStyle.cyan,
         isPressed ? 0.5 : 0,
@@ -1335,7 +1336,7 @@ class LauncherView extends Component {
     canvas.drawRRect(capsule, Paint()..color = const Color(0xFF070B1A));
     canvas.drawRRect(
       capsule,
-      PinballStyle.metal(housing)
+      PinballStyle.createMetalPaint(housing)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 0.16,
     );
@@ -1376,7 +1377,7 @@ class LauncherView extends Component {
     );
     canvas.drawRRect(
       RRect.fromRectAndRadius(base, const Radius.circular(0.1)),
-      PinballStyle.metal(base),
+      PinballStyle.createMetalPaint(base),
     );
     final head = Rect.fromLTWH(x - 0.72, headTop - 0.04, 1.44, 0.66);
     canvas.drawRRect(
@@ -1387,7 +1388,7 @@ class LauncherView extends Component {
         bottomLeft: const Radius.circular(0.12),
         bottomRight: const Radius.circular(0.12),
       ),
-      PinballStyle.metal(head),
+      PinballStyle.createMetalPaint(head),
     );
   }
 }
@@ -1424,7 +1425,7 @@ class PulseRing extends PositionComponent {
 
 void _drawGoldStud(Canvas canvas, Offset center, double radius) {
   final bounds = Rect.fromCircle(center: center, radius: radius);
-  canvas.drawCircle(center, radius, PinballStyle.metal(bounds));
+  canvas.drawCircle(center, radius, PinballStyle.createMetalPaint(bounds));
   canvas.drawCircle(
     center,
     radius,

@@ -115,7 +115,7 @@ MonPinballGame requirePinballGame() {
   return game;
 }
 
-Rect pinballInputRect(WidgetTester tester) {
+Rect findPinballInputRect(WidgetTester tester) {
   return tester.getRect(find.byKey(const ValueKey('pinball-input-surface')));
 }
 
@@ -124,7 +124,7 @@ Rect pinballInputRect(WidgetTester tester) {
 /// width or height. Device runs include real system-bar insets, so this checks
 /// proportions rather than a fixed host pixel width.
 void expectCompactInstrumentsLeaveTheTable(WidgetTester tester) {
-  final table = pinballInputRect(tester);
+  final table = findPinballInputRect(tester);
   final screen = tester.getRect(find.byType(Scaffold));
   final insets = MediaQuery.paddingOf(tester.element(find.byType(Scaffold)));
   expect(table.top - screen.top - insets.top, lessThan(screen.height * 0.14));
@@ -143,8 +143,8 @@ void expectCompactInstrumentsLeaveTheTable(WidgetTester tester) {
   expect(table.width, greaterThan(screen.width * 0.85));
 }
 
-Offset playfieldPosition(WidgetTester tester, String side) {
-  final rect = pinballInputRect(tester);
+Offset findPlayfieldPosition(WidgetTester tester, String side) {
+  final rect = findPinballInputRect(tester);
   final dx = switch (side) {
     'left' => rect.width * 0.25,
     'right' => rect.width * 0.70,
@@ -153,8 +153,8 @@ Offset playfieldPosition(WidgetTester tester, String side) {
   return rect.topLeft + Offset(dx, rect.height * 0.78);
 }
 
-Offset plungerPosition(WidgetTester tester) {
-  final rect = pinballInputRect(tester);
+Offset findPlungerPosition(WidgetTester tester) {
+  final rect = findPinballInputRect(tester);
   return rect.topLeft + Offset(rect.width * 0.88, rect.height * 0.72);
 }
 

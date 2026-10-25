@@ -14,7 +14,7 @@ void main() {
     final game = await pumpPinballApp(tester, pauseGame: true);
     addTearDown(() => disposePinballScenario(tester));
     game.world.gravity = Vector2.zero();
-    _ball(game).body.linearDamping = 0;
+    _findBall(game).body.linearDamping = 0;
     return game;
   }
 
@@ -33,7 +33,7 @@ void main() {
     expect(boss.active, isFalse);
     expect(boss.petals, isEmpty);
     expect(boss.health, 16000);
-    expect(_ball(game).body.bodyType, BodyType.static);
+    expect(_findBall(game).body.bodyType, BodyType.static);
     game.releaseLauncher();
     expect(boss.active, isTrue);
     expect(game.hud.value.status, 'Launched');
@@ -45,7 +45,7 @@ void main() {
       final game = await load(tester);
       game.releaseLauncher();
       final boss = game.boss;
-      final ball = _ball(game);
+      final ball = _findBall(game);
       final center = boss.position;
       const reach = 1.35 + PinballBall.radius;
       final from = center + Vector2(-0.7, reach - 0.05);
@@ -70,15 +70,15 @@ void main() {
     final game = await load(tester);
     game.releaseLauncher();
     final boss = game.boss;
-    _place(game, boss.position);
+    _placeBall(game, boss.position);
     for (var frame = 0; frame < 10; frame++) {
       game.stepEngine();
     }
     expect(boss.health, 14720);
     expect(game.hud.value.score, 1280);
-    _place(game, boss.position + Vector2(4, 0));
+    _placeBall(game, boss.position + Vector2(4, 0));
     game.stepEngine();
-    _place(game, boss.position);
+    _placeBall(game, boss.position);
     game.stepEngine();
     expect(boss.health, 13440);
     expect(game.hud.value.score, 2560);
@@ -90,7 +90,7 @@ void main() {
     final game = await load(tester);
     game.releaseLauncher();
     final boss = game.boss;
-    final ball = _ball(game);
+    final ball = _findBall(game);
     // One fast step across the forehead, well clear of the brooch.
     ball.body.setTransform(boss.position + Vector2(-3.5, -3.2), 0);
     ball.body.linearVelocity = Vector2(120, 0);
@@ -113,9 +113,9 @@ void main() {
     game.releaseLauncher();
     final boss = game.boss;
     // Both sides lie outside the brooch and the body.
-    _place(game, boss.position + Vector2(-6, 0));
+    _placeBall(game, boss.position + Vector2(-6, 0));
     game.stepEngine();
-    _place(game, boss.position + Vector2(6, 0));
+    _placeBall(game, boss.position + Vector2(6, 0));
     game.stepEngine();
     expect(boss.health, 16000);
     expect(game.hud.value.score, 0);
@@ -129,11 +129,11 @@ void main() {
     final boss = game.boss;
     boss.update(3.2);
     expect(boss.petals, isNotEmpty);
-    _place(game, boss.position);
+    _placeBall(game, boss.position);
     game.stepEngine();
     expect(boss.health, 14720);
     expect(boss.hurtProgress, greaterThan(0));
-    _place(game, Vector2(14, MonPinballGame.boardHeight + 5));
+    _placeBall(game, Vector2(14, MonPinballGame.boardHeight + 5));
     game.stepEngine();
     game.stepEngine();
     expect(boss.health, 14720);
@@ -160,7 +160,7 @@ void main() {
         (tester) async {
           final game = await load(tester);
           game.releaseLauncher();
-          _place(game, game.boss.position);
+          _placeBall(game, game.boss.position);
           game.stepEngine();
           expect(game.hud.value.score, 1280);
           if (mountEffects) {
@@ -175,7 +175,7 @@ void main() {
           if (restart) {
             game.restartGame();
           } else {
-            _place(game, Vector2(14, MonPinballGame.boardHeight + 5));
+            _placeBall(game, Vector2(14, MonPinballGame.boardHeight + 5));
             game.stepEngine();
             expect(game.hud.value.lives, 2);
           }
@@ -198,9 +198,9 @@ void main() {
       game.releaseLauncher();
       final boss = game.boss;
       for (var hit = 0; hit < 13; hit++) {
-        _place(game, boss.position + Vector2(4, 0));
+        _placeBall(game, boss.position + Vector2(4, 0));
         game.stepEngine();
-        _place(game, boss.position);
+        _placeBall(game, boss.position);
         game.stepEngine();
       }
       expect(boss.defeated, isTrue);
@@ -211,7 +211,7 @@ void main() {
       expect(game.hud.value.lives, 3);
       expect(game.hud.value.score, 16000);
       expect(game.hud.value.gameOver, isFalse);
-      expect(_ball(game).body.bodyType, BodyType.static);
+      expect(_findBall(game).body.bodyType, BodyType.static);
       game.nudge();
       game.addScore(
         250,
@@ -230,7 +230,7 @@ void main() {
       expect(game.hud.value.lives, 3);
       expect(game.hud.value.status, contains('승리'));
       expect(
-        _ball(game).position.distanceTo(game.launchPosition),
+        _findBall(game).position.distanceTo(game.launchPosition),
         lessThan(0.001),
       );
       game.startLauncherCharge(timed: false);
@@ -244,10 +244,10 @@ void main() {
   );
 }
 
-PinballBall _ball(MonPinballGame game) =>
+PinballBall _findBall(MonPinballGame game) =>
     game.world.children.whereType<PinballBall>().single;
-void _place(MonPinballGame game, Vector2 position) {
-  final ball = _ball(game);
+void _placeBall(MonPinballGame game, Vector2 position) {
+  final ball = _findBall(game);
   ball.body.setTransform(position, 0);
   ball.body.linearVelocity = Vector2.zero();
 }

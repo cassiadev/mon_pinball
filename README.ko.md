@@ -298,7 +298,7 @@ sequenceDiagram
     Game->>Game: boss.update(dt), remember ball position
     Game->>World: physics step
     World->>World: resolve contacts and score callbacks
-    Game->>Game: boss.checkHit(previous, current ball position)
+    Game->>Game: boss.takeHit(previous, current ball position)
     Game->>Game: timed charge, drain or re-arm check
     Game->>HUD: ValueNotifier update when state changes
     GameWidget->>Game: render(canvas)
@@ -329,7 +329,7 @@ sequenceDiagram
 | `update(dt)` | 보스 이동과 타격 판정, 시간 기반 발사 충전, 공 이탈과 발사대 복귀 감지 |
 | `boardToViewport()` | 정적 메서드. 게임판 좌표를 Flutter 오버레이용 게임 위젯 좌표로 변환 |
 | `isLauncherTouch()` | 화면 좌표를 월드 좌표로 변환해 발사대 영역인지 확인 |
-| `launcherChargeFromDrag()` | 아래로 끈 거리를 `0.0..1.0` 충전량으로 변환 |
+| `calculateLauncherDragCharge()` | 아래로 끈 거리를 `0.0..1.0` 충전량으로 변환 |
 | `setLauncherDragCharge()` | 끌어서 만든 충전량을 저장하고 발사대 머리와 대기 중인 공을 아래로 이동 |
 | `releaseLauncher()` | 발사대에서 대기 중인 공에만 발사 속도를 적용하고 보스 공격 시작 |
 | `addScore()` | 점수와 콤보 갱신 및 파동 효과 생성 |
@@ -374,7 +374,7 @@ sequenceDiagram
 체력은 16,000(`maxHealth`)이며 `(14, 8.6)` 주변의 정해진 경로를 따라
 움직입니다. `start()`는 발사할 때 공격 주기를 시작하고, `pause()`는 공 소실이나
 발사대 복귀 때 주기를 멈추며, `reset()`은 보스전 전체를 초기화합니다.
-`update(dt)`는 시간을 진행하고 장식용 꽃잎을 다시 계산합니다. `checkHit()`은
+`update(dt)`는 시간을 진행하고 장식용 꽃잎을 다시 계산합니다. `takeHit()`은
 [충돌과 점수 계산](#충돌과-점수-계산)에서 설명합니다.
 
 ### 물리 컴포넌트
@@ -437,7 +437,7 @@ sequenceDiagram
     HUD->>Game: startLauncherCharge(timed: false)
     HUD->>Game: setLauncherDragCharge(0)
     User->>HUD: drag downward
-    HUD->>Game: launcherChargeFromDrag(start, current)
+    HUD->>Game: calculateLauncherDragCharge(start, current)
     HUD->>Game: setLauncherDragCharge(charge)
     Game->>Ball: ride the plunger head down
     User->>HUD: pointer up
@@ -590,7 +590,7 @@ sequenceDiagram
 
 보스 타격은 접촉 콜백을 쓰지 않습니다. 보스에는 물리 바디가 없어 공이 그대로
 통과합니다. `update(dt)`가 물리 단계 전의 공 위치를 기억해 두고, 단계가 끝나면
-`BossEncounter.checkHit(from, to, ballRadius: PinballBall.radius)`를
+`BossEncounter.takeHit(from, to, ballRadius: PinballBall.radius)`를
 호출합니다. 이동 구간은 보스 기준 상대 좌표로 계산하므로 지난 프레임 이후의
 보스 이동도 반영합니다.
 
@@ -603,7 +603,7 @@ sequenceDiagram
 
   Game->>Game: remember ball position
   Game->>World: physics step
-  Game->>Boss: checkHit(from, to, ballRadius)
+  Game->>Boss: takeHit(from, to, ballRadius)
   Boss->>Boss: sweep the brooch circle and head/torso ellipse
   Boss-->>Game: 1280, 320 or 0 damage
   Game->>Game: score += damage, combo += 1

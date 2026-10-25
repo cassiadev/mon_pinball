@@ -16,23 +16,24 @@ abstract final class PinballStyle {
   static const neon = Color(0xFF8E9BFF);
   static const pink = Color(0xFFE77BC8);
 
-  static Paint metal(Rect bounds) => Paint()
-    ..shader = const LinearGradient(
-      begin: Alignment.topLeft,
-      end: Alignment.bottomRight,
-      colors: [
-        Color(0xFFFFEAB1),
-        Color(0xFFD8BA78),
-        Color(0xFF8E6D39),
-        Color(0xFFFFEBC2),
-        Color(0xFFC6A566),
-        Color(0xFF70532E),
-        Color(0xFFE6CA89),
-      ],
-      stops: [0, 0.16, 0.35, 0.48, 0.61, 0.82, 1],
-    ).createShader(bounds);
+  static Paint createMetalPaint(Rect bounds) =>
+      Paint()
+        ..shader = const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFFFFEAB1),
+            Color(0xFFD8BA78),
+            Color(0xFF8E6D39),
+            Color(0xFFFFEBC2),
+            Color(0xFFC6A566),
+            Color(0xFF70532E),
+            Color(0xFFE6CA89),
+          ],
+          stops: [0, 0.16, 0.35, 0.48, 0.61, 0.82, 1],
+        ).createShader(bounds);
 
-  static Paint lens(Rect bounds, Color color, double flash) =>
+  static Paint createLensPaint(Rect bounds, Color color, double flash) =>
       Paint()
         ..shader = RadialGradient(
           center: const Alignment(-0.36, -0.48),

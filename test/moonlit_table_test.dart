@@ -25,7 +25,7 @@ void main() {
     for (final bumper in bumpers) {
       for (final wall in walls) {
         for (var i = 1; i < wall.points.length; i++) {
-          final distance = _segmentDistance(
+          final distance = _calculateDistanceToSegment(
             bumper.body.position,
             wall.points[i - 1],
             wall.points[i],
@@ -53,12 +53,16 @@ void main() {
     final (left, right) = (spinners.first, spinners.last);
     expect(left.barAngle, closeTo(-right.barAngle, 1e-9));
     // Screen y grows downward: \ falls to the right and / rises to the right.
-    Vector2 end(Spinner spinner, double side) => spinner.body.worldPoint(
-      Vector2(math.cos(spinner.barAngle), math.sin(spinner.barAngle)) *
-          (side * Spinner.halfLength),
+    Vector2 calculateBarEnd(Spinner spinner, double side) =>
+        spinner.body.worldPoint(
+          Vector2(math.cos(spinner.barAngle), math.sin(spinner.barAngle)) *
+              (side * Spinner.halfLength),
+        );
+    expect(
+      calculateBarEnd(left, 1).y,
+      greaterThan(calculateBarEnd(left, -1).y),
     );
-    expect(end(left, 1).y, greaterThan(end(left, -1).y));
-    expect(end(right, 1).y, lessThan(end(right, -1).y));
+    expect(calculateBarEnd(right, 1).y, lessThan(calculateBarEnd(right, -1).y));
   });
 
   testWidgets('obstacles draw over the boss; petals stay under the ball', (
@@ -210,7 +214,7 @@ void main() {
   });
 }
 
-double _segmentDistance(Vector2 point, Vector2 start, Vector2 end) {
+double _calculateDistanceToSegment(Vector2 point, Vector2 start, Vector2 end) {
   final edge = end - start;
   final t = ((point - start).dot(edge) / edge.length2).clamp(0.0, 1.0);
   return point.distanceTo(start + edge * t);
