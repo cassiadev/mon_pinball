@@ -84,6 +84,36 @@ void main() {
     expect(find.byKey(const ValueKey('journey-start')), findsOneWidget);
   });
 
+  testWidgets('later worlds show their stronger shield and exposure settings', (
+    tester,
+  ) async {
+    final progress = PinballProgress.memory();
+    for (var stage = 0; stage < 6; stage++) {
+      await progress.recordStageClear(
+        stageIndex: stage,
+        difficulty: PinballDifficulty.normal,
+        stars: 1,
+        score: 100000,
+      );
+    }
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(MaterialApp(home: JourneyHome(progress: progress)));
+    await tester.ensureVisible(find.byKey(const ValueKey('world-neon')));
+    await tester.tap(find.byKey(const ValueKey('world-neon')));
+    await tester.pump();
+    Text findSummary() => tester.widget<Text>(
+      find.byKey(const ValueKey('journey-difficulty-summary')),
+    );
+    expect(findSummary().data, contains('방패 4회'));
+    expect(findSummary().data, contains('약점 노출 4.3초'));
+    await tester.ensureVisible(find.byKey(const ValueKey('world-abyss')));
+    await tester.tap(find.byKey(const ValueKey('world-abyss')));
+    await tester.pump();
+    expect(findSummary().data, contains('방패 4회'));
+    expect(findSummary().data, contains('약점 노출 3.6초'));
+  });
+
   testWidgets(
     'pause and resume preserve the active run before returning home',
     (tester) async {

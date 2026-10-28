@@ -64,6 +64,7 @@ flutter:
 
   assets:
     - assets/images/moonlit/
+    - assets/images/journey/
     - assets/fonts/IBMPlexMono-LICENSE.txt
     - assets/fonts/Rajdhani-OFL.txt
 

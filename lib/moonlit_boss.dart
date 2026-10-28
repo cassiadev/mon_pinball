@@ -232,7 +232,7 @@ class BossPetals extends Component {
 
   @override
   void render(Canvas canvas) {
-    if (!encounter.visible) return;
+    if (!encounter.visible || encounter.pattern != BossPattern.garden) return;
     for (final petal in encounter.petals) {
       // Keep decorative projectiles out of the lower flipper approach.
       if (petal.y > 34) continue;

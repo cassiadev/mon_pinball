@@ -140,7 +140,8 @@ void main() {
       configuration: const RunConfiguration(stageIndex: 4),
     );
     game.releaseLauncher();
-    placeBall(game, Vector2(14, 32));
+    // This is a neutral wait between objectives, outside the neon rotor sweep.
+    placeBall(game, Vector2(14, 33.25));
     for (var hit = 0; hit < 11; hit++) {
       scoreHit(game, 'target-0');
     }

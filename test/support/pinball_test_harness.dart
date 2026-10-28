@@ -102,6 +102,8 @@ Future<void> loadPinballGameArt(
   await tester.runAsync(() async {
     await Future.wait([
       game.images.load('moonlit/garden.png'),
+      game.images.load('journey/neon-sentinel.png'),
+      game.images.load('journey/abyss-guardian.png'),
       Flame.images.load('moonlit/tsukibina-atlas.png'),
     ]);
   });

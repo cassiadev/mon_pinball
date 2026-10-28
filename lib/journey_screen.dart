@@ -215,8 +215,8 @@ class _JourneyHomeState extends State<JourneyHome> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    '공 ${_difficulty.balls}개 · 방패 ${_difficulty.shieldHits}회 · '
-                    '약점 노출 ${_difficulty.exposureSeconds.toStringAsFixed(0)}초',
+                    '공 ${_difficulty.balls}개 · 방패 ${_difficulty.shieldHits + _world.shieldBonus}회 · '
+                    '약점 노출 ${(_difficulty.exposureSeconds * _world.exposureScale).toStringAsFixed(_world == PinballWorld.garden ? 0 : 1)}초',
                     key: const ValueKey('journey-difficulty-summary'),
                     style: const TextStyle(
                       fontSize: 12,
@@ -644,7 +644,19 @@ class _JourneyPlayScreenState extends State<JourneyPlayScreen>
         BossShieldState.exposed =>
           '약점 노출 ${boss.exposureRemaining.toStringAsFixed(1)}초 · 보스를 노리세요',
         BossShieldState.attacking =>
-          boss.laneSealed ? '왼쪽 레인 봉쇄 · 오른쪽 경로를 노리세요' : '공격 예고 · 공을 살려두세요',
+          boss.sealsLeftLane && boss.sealsRightLane
+              ? '양쪽 레인 봉쇄 · 중앙 길을 노리세요'
+              : boss.sealsRightLane
+              ? '오른쪽 레인 봉쇄 · 왼쪽 경로를 노리세요'
+              : boss.sealsLeftLane
+              ? '왼쪽 레인 봉쇄 · 오른쪽 경로를 노리세요'
+              : boss.warnsLeftLane && boss.warnsRightLane
+              ? '촉수 예고 · 중앙 길로 이동하세요'
+              : boss.warnsRightLane
+              ? '오른쪽 조준 · 반대편을 노리세요'
+              : boss.warnsLeftLane
+              ? '왼쪽 조준 · 반대편을 노리세요'
+              : '공격 예고 · 공을 살려두세요',
         BossShieldState.defeated => '보스 격파!',
       };
       return Padding(
