@@ -6,6 +6,8 @@ enum BossMotion { idle, moving, attacking, hurt, defeated }
 
 enum BossShieldState { shielded, exposed, attacking, defeated }
 
+enum BossPattern { garden, neon, abyss }
+
 /// A decorative petal in board coordinates, with its angle in radians.
 class BossPetal {
   const BossPetal(this.x, this.y, this.angle, this.age);
@@ -34,6 +36,7 @@ class BossEncounter {
 
   int _health = 16000;
   int _maxHealth = 16000;
+  BossPattern _pattern = BossPattern.garden;
   int _requiredShieldHits = 0;
   int _shieldCharge = 0;
   double _exposureSeconds = 0;
@@ -59,6 +62,7 @@ class BossEncounter {
   bool visible = true;
 
   int get maxHealth => _maxHealth;
+  BossPattern get pattern => _pattern;
   bool get usesShield => _requiredShieldHits > 0;
   int get shieldCharge => _shieldCharge;
   int get requiredShieldHits => _requiredShieldHits;
@@ -80,11 +84,47 @@ class BossEncounter {
     return BossShieldState.shielded;
   }
 
-  bool get laneSealed =>
+  bool get _isLaneAttack =>
       usesShield &&
       active &&
       shieldState == BossShieldState.attacking &&
       phase >= 2;
+
+  /// Whether either side gate currently obstructs a lane.
+  bool get laneSealed => sealsLeftLane || sealsRightLane;
+
+  bool get sealsLeftLane => _isLaneAttack && !_isWarning && _targetsLeftLane;
+  bool get sealsRightLane => _isLaneAttack && !_isWarning && _targetsRightLane;
+
+  /// The announced gates stay open until their warning has finished.
+  bool get warnsLeftLane => _isLaneAttack && _isWarning && _targetsLeftLane;
+  bool get warnsRightLane => _isLaneAttack && _isWarning && _targetsRightLane;
+
+  /// Zero outside anticipation, then 0..1 before a new pattern's gate closes.
+  /// Phase one uses the same anticipation for decorative attacks only.
+  double get attackWarningProgress =>
+      _isWarning ? (_shieldAttackAge / _warningDuration).clamp(0.0, 1.0) : 0;
+
+  bool get _targetsLeftLane =>
+      pattern != BossPattern.neon || !_targetsRightLane;
+
+  bool get _targetsRightLane =>
+      pattern == BossPattern.abyss ||
+      pattern == BossPattern.neon &&
+          ((_shieldAttackElapsed + _timeTolerance) / _configuredAttackPeriod)
+              .floor()
+              .isOdd;
+
+  double get _warningDuration => pattern == BossPattern.abyss ? 0.85 : 0.6;
+
+  bool get _isWarning =>
+      pattern != BossPattern.garden &&
+      usesShield &&
+      shieldState == BossShieldState.attacking &&
+      _shieldAttackAge + _timeTolerance < _warningDuration;
+
+  double get _shieldAttackAge =>
+      _shieldCycleElapsed - (_configuredAttackPeriod - _shieldAttackDuration);
 
   double get _configuredAttackPeriod =>
       _shieldAttackInterval * (phase == 3 ? 0.8 : 1);
@@ -129,10 +169,7 @@ class BossEncounter {
     if (!active) return 0;
     if (usesShield) {
       if (shieldState != BossShieldState.attacking) return 0;
-      return ((_shieldCycleElapsed -
-                  (_configuredAttackPeriod - _shieldAttackDuration)) /
-              _shieldAttackDuration)
-          .clamp(0.0, 1.0);
+      return (_shieldAttackAge / _shieldAttackDuration).clamp(0.0, 1.0);
     }
     final phase = _activeElapsed % _attackPeriod;
     return phase < 2.8 ? 0 : (phase - 2.8) / 0.7;
@@ -161,6 +198,7 @@ class BossEncounter {
     required double exposureSeconds,
     required double attackInterval,
     int maxHealth = 6400,
+    BossPattern pattern = BossPattern.garden,
   }) {
     if (shieldHits <= 0) throw ArgumentError.value(shieldHits, 'shieldHits');
     if (!exposureSeconds.isFinite || exposureSeconds <= 0) {
@@ -175,6 +213,7 @@ class BossEncounter {
     _exposureSeconds = exposureSeconds;
     _shieldAttackInterval = attackInterval;
     _maxHealth = maxHealth;
+    _pattern = pattern;
     reset();
   }
 

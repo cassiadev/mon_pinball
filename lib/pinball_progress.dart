@@ -30,14 +30,42 @@ enum PinballDifficulty {
 
 enum PinballWorld {
   garden('달의 정원', '달빛에 잠든 꽃을 깨우세요', '월식의 수호자 · 츠키비나'),
-  neon('네온 도시', '빛의 흐름을 이어 도시를 되찾으세요', '네온 감시자'),
-  abyss('심해의 유적', '고요한 심해의 봉인을 해제하세요', '심연의 파수꾼');
+  neon(
+    '네온 도시',
+    '회전 전극을 피하고 조준 레이저의 틈을 노리세요',
+    '네온 감시자',
+    bossHealth: 8000,
+    shieldBonus: 1,
+    exposureScale: 0.85,
+    attackScale: 0.8,
+  ),
+  abyss(
+    '심해의 유적',
+    '움직이는 수문과 촉수 사이로 중앙 길을 여세요',
+    '심연의 파수꾼',
+    bossHealth: 9600,
+    shieldBonus: 1,
+    exposureScale: 0.72,
+    attackScale: 0.7,
+  );
 
-  const PinballWorld(this.label, this.tagline, this.bossName);
+  const PinballWorld(
+    this.label,
+    this.tagline,
+    this.bossName, {
+    this.bossHealth = 6400,
+    this.shieldBonus = 0,
+    this.exposureScale = 1,
+    this.attackScale = 1,
+  });
 
   final String label;
   final String tagline;
   final String bossName;
+  final int bossHealth;
+  final int shieldBonus;
+  final double exposureScale;
+  final double attackScale;
 }
 
 enum StageGoal { score, bloom, combo, targets, boss }
