@@ -5,7 +5,9 @@ import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
 
 import 'pinball_game.dart';
+import 'pinball_progress.dart';
 import 'pinball_style.dart';
+import 'journey_screen.dart';
 
 void main() {
   runApp(const MonPinballApp());
@@ -14,9 +16,9 @@ void main() {
 typedef PinballGameFactory = MonPinballGame Function();
 
 class MonPinballApp extends StatelessWidget {
-  const MonPinballApp({super.key, this.gameFactory = MonPinballGame.new});
+  const MonPinballApp({super.key, this.gameFactory});
 
-  final PinballGameFactory gameFactory;
+  final PinballGameFactory? gameFactory;
 
   @override
   Widget build(BuildContext context) {
@@ -33,15 +35,25 @@ class MonPinballApp extends StatelessWidget {
         fontFamily: 'IBMPlexMono',
         fontFamilyFallback: const ['sans-serif'],
       ),
-      home: PinballScreen(gameFactory: gameFactory),
+      home: gameFactory == null
+          ? const JourneyHome()
+          : PinballScreen(gameFactory: gameFactory!),
     );
   }
 }
 
 class PinballScreen extends StatefulWidget {
-  const PinballScreen({required this.gameFactory, super.key});
+  const PinballScreen({
+    required this.gameFactory,
+    this.dashboardBuilder,
+    this.overlayBuilder,
+    super.key,
+  });
 
   final PinballGameFactory gameFactory;
+  final Widget Function(MonPinballGame game, bool wide)? dashboardBuilder;
+  final Widget Function(BuildContext context, MonPinballGame game)?
+  overlayBuilder;
 
   @override
   State<PinballScreen> createState() => _PinballScreenState();
@@ -86,7 +98,9 @@ class _PinballScreenState extends State<PinballScreen> {
                                 : constraints.maxHeight * 0.42,
                           ),
                           child: SingleChildScrollView(
-                            child: _Dashboard(game: _game, wide: wide),
+                            child:
+                                widget.dashboardBuilder?.call(_game, wide) ??
+                                _Dashboard(game: _game, wide: wide),
                           ),
                         ),
                       ),
@@ -121,6 +135,8 @@ class _PinballScreenState extends State<PinballScreen> {
               ),
             ),
           ),
+          if (widget.overlayBuilder != null)
+            widget.overlayBuilder!(context, _game),
         ],
       ),
     );
@@ -138,6 +154,29 @@ class _GardenBackdrop extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (game.configuration != null) {
+      return ValueListenableBuilder(
+        valueListenable: game.hud,
+        builder: (context, _, child) => game.currentWorld == PinballWorld.garden
+            ? child!
+            : DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: RadialGradient(
+                    center: const Alignment(0, -0.5),
+                    radius: 1.2,
+                    colors: game.currentWorld == PinballWorld.neon
+                        ? const [Color(0xFF123D46), Color(0xFF080D20)]
+                        : const [Color(0xFF172D52), Color(0xFF050B18)],
+                  ),
+                ),
+              ),
+        child: _buildGarden(),
+      );
+    }
+    return _buildGarden();
+  }
+
+  Widget _buildGarden() {
     if (game.images.containsKey(_key)) {
       return _buildBackdrop(game.images.fromCache(_key));
     }
@@ -197,29 +236,47 @@ class PinballHud extends StatefulWidget {
 class _PinballHudState extends State<PinballHud> {
   final Map<int, _TouchAction> _activeTouches = {};
   final Map<int, _LauncherDrag> _launcherDrags = {};
+  late int _inputEpoch = widget.game.inputEpoch;
+
+  bool _preparePointerInput() {
+    final paused = widget.game.configuration != null && widget.game.paused;
+    if (_inputEpoch != widget.game.inputEpoch || paused) {
+      _activeTouches.clear();
+      _launcherDrags.clear();
+      _inputEpoch = widget.game.inputEpoch;
+    }
+    return !paused;
+  }
 
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
+        final input = Listener(
+          key: const ValueKey('pinball-input-surface'),
+          behavior: HitTestBehavior.translucent,
+          onPointerDown: (event) =>
+              _activatePointer(event.pointer, event.localPosition, constraints),
+          onPointerUp: (event) => _deactivatePointer(event.pointer),
+          onPointerCancel: (event) => _deactivatePointer(event.pointer),
+          onPointerMove: (event) =>
+              _updatePointer(event.pointer, event.localPosition),
+          child: const SizedBox.expand(),
+        );
         return Stack(
           children: [
             Positioned.fill(child: _TableLabels(size: constraints.biggest)),
             Positioned.fill(
-              child: Listener(
-                key: const ValueKey('pinball-input-surface'),
-                behavior: HitTestBehavior.translucent,
-                onPointerDown: (event) => _activatePointer(
-                  event.pointer,
-                  event.localPosition,
-                  constraints,
-                ),
-                onPointerUp: (event) => _deactivatePointer(event.pointer),
-                onPointerCancel: (event) => _deactivatePointer(event.pointer),
-                onPointerMove: (event) =>
-                    _updatePointer(event.pointer, event.localPosition),
-                child: const SizedBox.expand(),
-              ),
+              child: widget.game.configuration == null
+                  ? input
+                  : Semantics(
+                      container: true,
+                      label: '핀볼 게임판',
+                      hint:
+                          '왼쪽·오른쪽을 눌러 플리퍼를 움직이고 '
+                          '오른쪽 아래 발사대를 아래로 당기세요',
+                      child: input,
+                    ),
             ),
           ],
         );
@@ -232,6 +289,7 @@ class _PinballHudState extends State<PinballHud> {
     Offset localPosition,
     BoxConstraints constraints,
   ) {
+    if (!_preparePointerInput()) return;
     final width = constraints.maxWidth;
     final action = widget.game.isLauncherTouch(localPosition)
         ? _TouchAction.launcher
@@ -253,6 +311,7 @@ class _PinballHudState extends State<PinballHud> {
   }
 
   void _updatePointer(int pointer, Offset localPosition) {
+    if (!_preparePointerInput()) return;
     final action = _activeTouches[pointer];
     if (action != _TouchAction.launcher) {
       return;
@@ -271,6 +330,7 @@ class _PinballHudState extends State<PinballHud> {
   }
 
   void _deactivatePointer(int pointer) {
+    if (!_preparePointerInput()) return;
     final action = _activeTouches.remove(pointer);
     if (action == null) {
       return;

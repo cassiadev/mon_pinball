@@ -35,7 +35,9 @@ class _Rig {
 /// The figure sits beneath the physical obstacles so jewels, targets and the
 /// ball always read on top of her, as in the approved mockup.
 class MoonlitBoss extends Component {
-  MoonlitBoss(this.encounter) : super(priority: -20);
+  MoonlitBoss(this.encounter, {this.shouldRender}) : super(priority: -20);
+
+  final bool Function()? shouldRender;
 
   // Measured from the atlas: wing roots, shoulder seams, the skirt waistband
   // and the brooch, composed to the final floating-boss mockup.
@@ -96,7 +98,12 @@ class MoonlitBoss extends Component {
   @override
   void render(Canvas canvas) {
     final atlas = _atlas;
-    if (atlas == null || encounter.vanished) return;
+    if (atlas == null ||
+        !encounter.visible ||
+        encounter.vanished ||
+        shouldRender?.call() == false) {
+      return;
+    }
 
     final time = encounter.poseTime;
     final breath = math.sin(time * 2.1);
@@ -225,6 +232,7 @@ class BossPetals extends Component {
 
   @override
   void render(Canvas canvas) {
+    if (!encounter.visible) return;
     for (final petal in encounter.petals) {
       // Keep decorative projectiles out of the lower flipper approach.
       if (petal.y > 34) continue;

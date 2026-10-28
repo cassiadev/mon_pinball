@@ -1,5 +1,8 @@
 # Mon Pinball
 
+> A hybrid pinball PoC adds nine stages, world-based arcade runs, difficulty presets and local records. See the [PoC guide](docs/hybrid-pinball-poc.md) for rules and scope.
+
+
 [English](README.md) | [한국어](README.ko.md)
 
 A small pinball game built with Flutter, Flame, and Forge2D. Flutter handles
