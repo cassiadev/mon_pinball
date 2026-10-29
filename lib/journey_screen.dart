@@ -759,7 +759,8 @@ class _JourneyPlayScreenState extends State<JourneyPlayScreen>
                     '발사대를 아래로 당겼다 놓기\n'
                     '왼쪽 / 오른쪽 터치로 플리퍼\n'
                     '키보드: A / D, Space 발사\n'
-                    '${configuration.difficulty.label} · 공 ${configuration.difficulty.balls}개',
+                    '${configuration.difficulty.label} · 공 ${configuration.difficulty.balls}개\n'
+                    '${_game.worldDeviceHint}',
                 accent: accent,
               ),
             ],
@@ -883,6 +884,17 @@ class _JourneyPlayScreenState extends State<JourneyPlayScreen>
                         TextButton(
                           onPressed: _leaveRun,
                           child: const Text('여정으로 돌아가기'),
+                        ),
+                      ],
+                      if (_paused) ...[
+                        const SizedBox(height: 16),
+                        Text(
+                          _game.worldDeviceHint,
+                          style: const TextStyle(
+                            color: PinballStyle.muted,
+                            fontSize: 12,
+                            height: 1.6,
+                          ),
                         ),
                       ],
                     ],

@@ -16,6 +16,7 @@ import 'pinball_progress.dart';
 import 'journey_table.dart';
 import 'journey_boss.dart';
 import 'world_obstacles.dart';
+import 'world_devices.dart';
 
 class PinballSnapshot {
   const PinballSnapshot({
@@ -135,6 +136,24 @@ class MonPinballGame extends Forge2DGame with KeyboardEvents {
       (configuration!.stage.goal == StageGoal.bloom ||
           configuration!.stage.goal == StageGoal.targets);
   bool get gateArmed => _gateArmed;
+  bool get usesSecondaryWorldDevice =>
+      configuration != null &&
+      (configuration!.mode == PinballMode.arcade ||
+          configuration!.stageIndex % 3 != 0);
+  String get worldDeviceHint => switch (currentWorld) {
+    PinballWorld.garden =>
+      usesSecondaryWorldDevice
+          ? '꽃잎은 공에 밀려 젖혀지고, 수련은 내려오는 공을 받아 위로 쏩니다.'
+          : '꽃잎은 공에 밀려 젖혀졌다가 돌아옵니다. 통과할 각도를 노리세요.',
+    PinballWorld.neon =>
+      usesSecondaryWorldDevice
+          ? '회전 전극의 틈을 노리세요. 가속 레일은 화살표 방향으로 진입하면 작동합니다.'
+          : '중앙 전극이 계속 회전합니다. 팔 사이의 빈틈을 노리세요.',
+    PinballWorld.abyss =>
+      usesSecondaryWorldDevice
+          ? '수문 사이로 공을 보내세요. 중앙 물살은 3초마다 방향이 바뀝니다.'
+          : '수문이 좌우로 왕복합니다. 열린 중앙 길과 바깥 통로를 활용하세요.',
+  };
   bool isMissionHitLit(String id) => _missionHits.contains(id);
 
   Vector2 findMissionHitPosition(String id) => switch (id) {
@@ -296,6 +315,9 @@ class MonPinballGame extends Forge2DGame with KeyboardEvents {
   BossDamagePopup? _damagePopup;
   final _scorePulses = <PulseRing>{};
   EncounterLaneGate? _rightEncounterGate;
+  GardenLotusScoop? _lotusScoop;
+  NeonBoostRail? _boostRail;
+  AbyssCurrent? _abyssCurrent;
 
   // The Flutter garden backdrop shows around the board.
   @override
@@ -346,6 +368,11 @@ class MonPinballGame extends Forge2DGame with KeyboardEvents {
         NeonElectrode(),
         AbyssSluice(right: false),
         AbyssSluice(right: true),
+        GardenPetalFlap(right: false),
+        GardenPetalFlap(right: true),
+        _lotusScoop = GardenLotusScoop(),
+        _boostRail = NeonBoostRail(),
+        _abyssCurrent = AbyssCurrent(),
       ]);
     }
 
@@ -392,6 +419,11 @@ class MonPinballGame extends Forge2DGame with KeyboardEvents {
     _ballSaveRemaining = math.max(0, _ballSaveRemaining - dt);
     _nudgeCooldown = math.max(0, _nudgeCooldown - dt);
     super.update(dt);
+    if (configuration != null && _canPlay && _ball.isMounted) {
+      _lotusScoop?.updateBall(_ball, from, dt);
+      _boostRail?.updateBall(_ball, from, dt);
+      _abyssCurrent?.updateBall(_ball, from, dt);
+    }
     _scorePulses.removeWhere((pulse) => pulse.parent == null);
 
     if (from != null && boss.active && _canPlay) {
@@ -598,7 +630,9 @@ class MonPinballGame extends Forge2DGame with KeyboardEvents {
   }
 
   bool get _canLaunchBall =>
-      _ball.isMounted && _ball.body.bodyType == BodyType.static;
+      _ball.isMounted &&
+      _ball.body.bodyType == BodyType.static &&
+      _lotusScoop?.isHolding != true;
 
   void startLauncherCharge({bool timed = true}) {
     if (_stageCleared) return;
@@ -780,8 +814,14 @@ class MonPinballGame extends Forge2DGame with KeyboardEvents {
       bumper.selectWorld();
     }
     for (final spinner in world.children.whereType<Spinner>()) {
-      spinner.body.setActive(currentWorld != PinballWorld.abyss);
+      spinner.body.setActive(configuration == null);
     }
+    for (final flap in world.children.whereType<GardenPetalFlap>()) {
+      flap.selectLayout();
+    }
+    _lotusScoop?.selectLayout();
+    _boostRail?.selectLayout();
+    _abyssCurrent?.selectLayout();
     for (final electrode in world.children.whereType<NeonElectrode>()) {
       electrode.selectWorld();
     }
@@ -972,6 +1012,8 @@ class MonPinballGame extends Forge2DGame with KeyboardEvents {
   }
 
   void _resetBall() {
+    _lotusScoop?.resetBallState();
+    _boostRail?.resetBallState();
     if (!_ball.isMounted) {
       return;
     }
@@ -1466,7 +1508,7 @@ class Spinner extends BodyComponent<MonPinballGame> with ContactCallbacks {
       BodyDef(
         position: spinnerCenter,
         userData: this,
-        active: game.currentWorld != PinballWorld.abyss,
+        active: game.configuration == null,
       ),
     );
     body.createFixture(

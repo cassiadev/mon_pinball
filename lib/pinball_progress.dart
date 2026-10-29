@@ -29,10 +29,10 @@ enum PinballDifficulty {
 }
 
 enum PinballWorld {
-  garden('달의 정원', '달빛에 잠든 꽃을 깨우세요', '월식의 수호자 · 츠키비나'),
+  garden('달의 정원', '젖혀지는 꽃잎과 수련의 발사로 꽃을 깨우세요', '월식의 수호자 · 츠키비나'),
   neon(
     '네온 도시',
-    '회전 전극을 피하고 조준 레이저의 틈을 노리세요',
+    '회전 전극의 틈을 지나 가속 레일로 질주하세요',
     '네온 감시자',
     bossHealth: 8000,
     shieldBonus: 1,
@@ -41,7 +41,7 @@ enum PinballWorld {
   ),
   abyss(
     '심해의 유적',
-    '움직이는 수문과 촉수 사이로 중앙 길을 여세요',
+    '왕복 수문과 방향이 바뀌는 물살 사이로 길을 여세요',
     '심연의 파수꾼',
     bossHealth: 9600,
     shieldBonus: 1,
@@ -95,7 +95,7 @@ const pinballStages = [
     title: '달빛의 입구',
     goal: StageGoal.score,
     target: 100000,
-    hint: '범퍼와 타깃을 맞혀 100,000점을 모으세요',
+    hint: '공에 밀려 젖혀지는 꽃잎을 지나 범퍼와 타깃으로 100,000점을 모으세요',
   ),
   StageDefinition(
     world: PinballWorld.garden,
@@ -103,7 +103,7 @@ const pinballStages = [
     title: '꽃이 피는 밤',
     goal: StageGoal.bloom,
     target: 3,
-    hint: '서로 다른 위쪽 보석 3개를 충전한 뒤 상단 게이트를 통과하세요',
+    hint: '수련은 내려오는 공을 받아 위로 쏩니다. 서로 다른 위쪽 보석 3개를 충전한 뒤 상단 게이트를 통과하세요',
   ),
   StageDefinition(
     world: PinballWorld.garden,
@@ -111,7 +111,7 @@ const pinballStages = [
     title: '월식의 수호자',
     goal: StageGoal.boss,
     target: 1,
-    hint: '좌우 보석·하단 타깃으로 방어막을 열고 약점을 노리세요',
+    hint: '꽃잎과 수련의 발사를 활용하세요. 좌우 보석·하단 타깃으로 방어막을 열고 약점을 노리세요',
   ),
   StageDefinition(
     world: PinballWorld.neon,
@@ -119,7 +119,7 @@ const pinballStages = [
     title: '불빛의 거리',
     goal: StageGoal.score,
     target: 150000,
-    hint: '도시의 장치를 맞혀 150,000점을 모으세요',
+    hint: '회전 전극의 빈틈을 노려 도시의 장치로 150,000점을 모으세요',
   ),
   StageDefinition(
     world: PinballWorld.neon,
@@ -127,7 +127,7 @@ const pinballStages = [
     title: '이어지는 전류',
     goal: StageGoal.combo,
     target: 12,
-    hint: '공을 잃기 전에 12콤보를 이어가세요',
+    hint: '오른쪽 가속 레일의 화살표 방향으로 진입하세요. 공을 잃기 전에 12콤보를 이어가세요',
   ),
   StageDefinition(
     world: PinballWorld.neon,
@@ -135,7 +135,7 @@ const pinballStages = [
     title: '네온 감시자',
     goal: StageGoal.boss,
     target: 1,
-    hint: '좌우 보석·하단 타깃으로 방어막을 열고 약점을 노리세요',
+    hint: '회전 전극과 가속 레일을 활용하세요. 좌우 보석·하단 타깃으로 방어막을 열고 약점을 노리세요',
   ),
   StageDefinition(
     world: PinballWorld.abyss,
@@ -143,7 +143,7 @@ const pinballStages = [
     title: '가라앉은 빛',
     goal: StageGoal.score,
     target: 200000,
-    hint: '심해의 장치를 맞혀 200,000점을 모으세요',
+    hint: '왕복 수문의 열린 통로를 골라 심해의 장치로 200,000점을 모으세요',
   ),
   StageDefinition(
     world: PinballWorld.abyss,
@@ -151,7 +151,7 @@ const pinballStages = [
     title: '네 개의 봉인',
     goal: StageGoal.targets,
     target: 4,
-    hint: '서로 다른 타깃 4개를 모두 맞히세요. 그 뒤 상단 게이트를 통과하세요',
+    hint: '중앙 물살은 3초마다 방향이 바뀝니다. 서로 다른 타깃 4개를 맞힌 뒤 상단 게이트를 통과하세요',
   ),
   StageDefinition(
     world: PinballWorld.abyss,
@@ -159,7 +159,7 @@ const pinballStages = [
     title: '심연의 파수꾼',
     goal: StageGoal.boss,
     target: 1,
-    hint: '좌우 보석·하단 타깃으로 방어막을 열고 약점을 노리세요',
+    hint: '물살의 방향과 수문의 틈을 읽으세요. 좌우 보석·하단 타깃으로 방어막을 열고 약점을 노리세요',
   ),
 ];
 

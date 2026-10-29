@@ -104,7 +104,15 @@ void main() {
 
   for (final world in PinballWorld.values) {
     testWidgets('$world enables only its own moving devices', (tester) async {
-      final game = await loadWorld(tester, world);
+      // The garden introduction has an open center. Later garden stages add
+      // the intentional lotus catch, exercised in world_device_variation_test.
+      final game = await loadWorld(
+        tester,
+        world,
+        configuration: world == PinballWorld.garden
+            ? const RunConfiguration(stageIndex: 0)
+            : null,
+      );
       final electrode = game.world.children.whereType<NeonElectrode>().single;
       final sluices = game.world.children.whereType<AbyssSluice>();
       expect(electrode.body.isActive, world == PinballWorld.neon);
