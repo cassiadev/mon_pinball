@@ -776,6 +776,12 @@ class _JourneyPlayScreenState extends State<JourneyPlayScreen>
     final lastStage = configuration.stageIndex >= pinballStages.length - 1;
     final arcade = configuration.mode == PinballMode.arcade;
     final accent = _selectAccent(_game.currentWorld);
+    // A failed stage saves nothing; stage records are written only on a clear.
+    final recordNote = arcade
+        ? '아케이드 기록에 반영했습니다.'
+        : cleared
+        ? '스테이지 기록에 반영했습니다.'
+        : '스테이지 기록은 클리어할 때 저장됩니다.';
     return BlockSemantics(
       child: ColoredBox(
         color: const Color(0xDF080C1A),
@@ -835,7 +841,7 @@ class _JourneyPlayScreenState extends State<JourneyPlayScreen>
                         _paused
                             ? '${configuration.difficulty.label} · 진행 중인 공은 그대로 기다립니다.'
                             : '${_formatScore(snapshot.score)}점 · 최고 ${_game.bestCombo} 콤보\n'
-                                  '${arcade ? '아케이드 기록' : '스테이지 기록'}에 반영했습니다.',
+                                  '$recordNote',
                         textAlign: TextAlign.center,
                         style: const TextStyle(
                           color: PinballStyle.muted,

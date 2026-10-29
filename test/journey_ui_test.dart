@@ -248,6 +248,7 @@ void main() {
       await tester.pump();
       expect(game.stageCleared, isTrue);
       expect(find.text('스테이지 클리어!'), findsOneWidget);
+      expect(find.textContaining('스테이지 기록에 반영했습니다'), findsOneWidget);
       await tester.tap(find.text('다음 스테이지'));
       await tester.pump();
       expect(game.configuration!.stageIndex, 1);
@@ -272,4 +273,58 @@ void main() {
       );
     },
   );
+
+  for (final (mode, savedScore, recordClaim) in [
+    (PinballMode.stage, 0, findsNothing),
+    (PinballMode.arcade, 1000, findsOneWidget),
+  ]) {
+    testWidgets('${mode.name} game over claims only a record it saved', (
+      tester,
+    ) async {
+      final progress = PinballProgress.memory();
+      await tester.binding.setSurfaceSize(const Size(390, 844));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(
+        MaterialApp(
+          home: JourneyPlayScreen(
+            configuration: RunConfiguration(mode: mode),
+            progress: progress,
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      final game = tester
+          .widget<GameWidget<MonPinballGame>>(
+            find.byType(GameWidget<MonPinballGame>),
+          )
+          .game!;
+      await tester.runAsync(() => game.loaded);
+      await tester.pump(const Duration(milliseconds: 16));
+      await tester.pump(const Duration(milliseconds: 16));
+      game.addScore(50, Vector2(14, 22), Colors.amber, '기록 확인');
+      final ball = game.world.children.whereType<PinballBall>().single;
+      // Launch ball saves return some drained balls before the run ends.
+      for (var drain = 0; drain < 12 && !game.hud.value.gameOver; drain++) {
+        game.releaseLauncher();
+        ball.body.setTransform(Vector2(14, 62), 0);
+        ball.body.linearVelocity = Vector2.zero();
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      await tester.pump();
+      expect(game.hud.value.gameOver, isTrue);
+      expect(find.text('멋진 한 판이었어요'), findsOneWidget);
+      expect(find.textContaining('기록에 반영했습니다'), recordClaim);
+      expect(
+        mode == PinballMode.stage
+            ? progress.findBestStageScore(0, PinballDifficulty.normal)
+            : progress.findBestArcadeScore(
+                PinballWorld.garden,
+                PinballDifficulty.normal,
+              ),
+        savedScore,
+      );
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+  }
 }
