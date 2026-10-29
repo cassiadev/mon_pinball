@@ -1,5 +1,8 @@
 # Fixed world obstacle variation
 
+후속 [밸런스 검증](balance-validation.md)에서 반복 플레이를 바탕으로 수련 발사,
+심해 달 범퍼, 네온 콤보 목표와 쉬움 심해 체력을 조정했습니다. 아래는 추가 당시 기록입니다.
+
 2026-10-29. Each world now has two mechanically different devices in an authored
 layout. The first stage introduces the primary device, the second stage and boss
 combine both types, and arcade enables both immediately.

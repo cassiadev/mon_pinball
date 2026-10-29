@@ -142,11 +142,11 @@ void main() {
     game.releaseLauncher();
     // This is a neutral wait between objectives, outside the neon rotor sweep.
     placeBall(game, Vector2(14, 33.25));
-    for (var hit = 0; hit < 11; hit++) {
+    for (var hit = 0; hit < 59; hit++) {
       scoreHit(game, 'target-0');
     }
     expect(game.stageCleared, isFalse);
-    expect(game.hud.value.combo, 11);
+    expect(game.hud.value.combo, 59);
     for (var frame = 0; frame < 8 * 60; frame++) {
       game.stepEngine();
     }
@@ -157,13 +157,13 @@ void main() {
     expect(game.stageCleared, isFalse);
 
     game.releaseLauncher();
-    for (var hit = 0; hit < 12; hit++) {
+    for (var hit = 0; hit < 60; hit++) {
       scoreHit(game, 'target-0');
     }
     game.stepEngine(stepTime: 0);
     expect(game.stageCleared, isTrue);
     expect(game.stageStars, 2);
-    expect(game.hud.value.combo, 12);
+    expect(game.hud.value.combo, 60);
   });
 
   testWidgets('boss launch and eligible hits control shielded damage', (

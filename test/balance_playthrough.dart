@@ -14,6 +14,7 @@ Future<void> main() async {
   const runs = int.fromEnvironment('BALANCE_RUNS', defaultValue: 8);
   const seconds = int.fromEnvironment('BALANCE_SECONDS', defaultValue: 180);
   const exposureOverride = int.fromEnvironment('BALANCE_EXPOSURE_MS');
+  const healthOverride = int.fromEnvironment('BALANCE_BOSS_HEALTH');
   const targetOverride = int.fromEnvironment('BALANCE_TARGET');
   const modeText = String.fromEnvironment(
     'BALANCE_MODE',
@@ -70,12 +71,19 @@ Future<void> main() async {
               experimentalExposureSeconds: exposureOverride == 0
                   ? null
                   : exposureOverride / 1000,
+              experimentalBossHealth: healthOverride == 0
+                  ? null
+                  : healthOverride,
               yieldFrame: live ? () => tester.pump() : null,
             );
             results.add(result.toJson());
+            // Android truncates long messages. Full host traces stay in the
+            // JSON artifact; keep native console rows independently valid.
             // ignore: avoid_print
             print(
-              'BALANCE ${jsonEncode({...result.toJson()}..remove('losses'))}',
+              'BALANCE ${jsonEncode({
+                for (final key in const ['world', 'stage', 'mode', 'difficulty', 'policy', 'seed', 'experimentalBossHealth', 'experimentalExposureSeconds', 'bossMaxHealth', 'target', 'outcome', 'seconds', 'score', 'bestCombo', 'livesLost', 'launches', 'bossDamage']) key: result.toJson()[key],
+              })}',
             );
           }
         }

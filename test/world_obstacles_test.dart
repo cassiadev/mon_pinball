@@ -234,7 +234,7 @@ void main() {
           game.advanceStage();
         }
         if (game.configuration!.stage.goal == StageGoal.combo) {
-          for (var hit = 0; hit < 12; hit++) {
+          for (var hit = 0; hit < game.configuration!.stage.target; hit++) {
             game.addScore(1, Vector2(14, 33), const Color(0xFFFFFFFF), 'test');
           }
           game.stepEngine(stepTime: 0);
@@ -257,6 +257,15 @@ void main() {
         await tester.pump(const Duration(milliseconds: 16));
         game.pauseEngine();
         expect(game.currentWorld, destination);
+        final moon = game.world.children.whereType<Bumper>().singleWhere(
+          (bumper) => bumper.style == BumperStyle.moon,
+        );
+        expect(
+          (moon.body.fixtures.single.shape as CircleShape).radius,
+          moon.radius,
+        );
+        expect(moon.radius, destination == PinballWorld.abyss ? 2 : 2.5);
+        expect(moon.position.x, destination == PinballWorld.abyss ? 10.5 : 14);
         expect(game.world.children.whereType<PinballBall>().single, same(ball));
         expect(
           game.world.children.whereType<Flipper>().first,

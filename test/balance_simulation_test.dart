@@ -75,7 +75,7 @@ void main() {
       game,
       policy: BalancePolicy.launchOnly,
       seed: 1009,
-      maxSeconds: 15,
+      maxSeconds: 90,
     );
     await tester.pump();
     expect(result.outcome, 'cleared');

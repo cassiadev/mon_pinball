@@ -254,7 +254,7 @@ class MonPinballGame extends Forge2DGame with KeyboardEvents {
         PinballWorld.neon => BossPattern.neon,
         PinballWorld.abyss => BossPattern.abyss,
       },
-      maxHealth: world.bossHealth,
+      maxHealth: world.selectBossHealth(difficulty),
       shieldHits: difficulty.shieldHits + world.shieldBonus,
       exposureSeconds: difficulty.exposureSeconds * world.exposureScale,
       attackInterval: difficulty.attackInterval * world.attackScale,
@@ -1382,16 +1382,23 @@ enum BumperStyle { jewel, post, moon }
 class Bumper extends BodyComponent<MonPinballGame> with ContactCallbacks {
   Bumper({
     required this.bumperCenter,
-    required this.radius,
+    required double radius,
     required this.points,
     required this.color,
     this.style = BumperStyle.jewel,
     this.kick = 22,
     this.missionId,
-  }) : super(priority: 5, renderBody: false);
+  }) : _baseRadius = radius,
+       super(priority: 5, renderBody: false);
 
   final Vector2 bumperCenter;
-  final double radius;
+  final double _baseRadius;
+  double get radius =>
+      game.configuration != null &&
+          game.currentWorld == PinballWorld.abyss &&
+          style == BumperStyle.moon
+      ? 2
+      : _baseRadius;
   final int points;
   final Color color;
   final BumperStyle style;
@@ -1405,7 +1412,6 @@ class Bumper extends BodyComponent<MonPinballGame> with ContactCallbacks {
   @override
   Body createBody() {
     _selectCenter();
-    final shape = CircleShape()..radius = radius;
     final body = world.createBody(
       BodyDef(
         position: bumperCenter,
@@ -1415,10 +1421,19 @@ class Bumper extends BodyComponent<MonPinballGame> with ContactCallbacks {
                 style == BumperStyle.post),
       ),
     );
-    body.createFixture(
-      FixtureDef(shape, userData: this, friction: 0.02, restitution: 1.55),
-    );
+    _createFixture(body);
     return body;
+  }
+
+  void _createFixture(Body body) {
+    body.createFixture(
+      FixtureDef(
+        CircleShape()..radius = radius,
+        userData: this,
+        friction: 0.02,
+        restitution: 1.55,
+      ),
+    );
   }
 
   void _selectCenter() {
@@ -1429,6 +1444,15 @@ class Bumper extends BodyComponent<MonPinballGame> with ContactCallbacks {
       bumperCenter.x = game.currentWorld == PinballWorld.neon
           ? (left ? 9 : 19)
           : (left ? 9.8 : 18.2);
+    } else if (style == BumperStyle.moon) {
+      // Leave the abyss's advertised center route open. The smaller radius
+      // also keeps a full-ball gap above its mandatory lower-left target.
+      bumperCenter.setValues(
+        game.configuration != null && game.currentWorld == PinballWorld.abyss
+            ? 10.5
+            : MoonlitTable.moonCenter.dx,
+        MoonlitTable.moonCenter.dy,
+      );
     }
   }
 
@@ -1438,6 +1462,11 @@ class Bumper extends BodyComponent<MonPinballGame> with ContactCallbacks {
       !(game.currentWorld == PinballWorld.abyss && style == BumperStyle.post),
     );
     body.setTransform(bumperCenter, 0);
+    final fixture = body.fixtures.single;
+    if ((fixture.shape as CircleShape).radius != radius) {
+      body.destroyFixture(fixture);
+      _createFixture(body);
+    }
     _flash = 0;
     _cooldown = 0;
   }

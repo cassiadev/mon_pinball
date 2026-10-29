@@ -66,6 +66,11 @@ enum PinballWorld {
   final int shieldBonus;
   final double exposureScale;
   final double attackScale;
+
+  int selectBossHealth(PinballDifficulty difficulty) =>
+      this == PinballWorld.abyss && difficulty == PinballDifficulty.easy
+      ? 6400
+      : bossHealth;
 }
 
 enum StageGoal { score, bloom, combo, targets, boss }
@@ -126,8 +131,8 @@ const pinballStages = [
     number: '2-2',
     title: '이어지는 전류',
     goal: StageGoal.combo,
-    target: 12,
-    hint: '오른쪽 가속 레일의 화살표 방향으로 진입하세요. 공을 잃기 전에 12콤보를 이어가세요',
+    target: 60,
+    hint: '오른쪽 가속 레일의 화살표 방향으로 진입하세요. 공을 잃기 전에 60콤보를 이어가세요',
   ),
   StageDefinition(
     world: PinballWorld.neon,

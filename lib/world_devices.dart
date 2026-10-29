@@ -155,7 +155,7 @@ class GardenLotusScoop extends Component with HasGameReference<MonPinballGame> {
         _cooldown = 1.0;
         ball.body.setType(BodyType.dynamic);
         ball.body.setAwake(true);
-        ball.body.linearVelocity = Vector2(_exitSide * 14, -30);
+        ball.body.linearVelocity = Vector2(_exitSide * 14, -50);
         game.addScore(150, center, const Color(0xFFFFBDE2), '수련 발사');
       }
       return;

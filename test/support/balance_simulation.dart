@@ -176,6 +176,7 @@ Future<BalanceResult> runBalanceEpisode(
   required int seed,
   double maxSeconds = 180,
   double? experimentalExposureSeconds,
+  int? experimentalBossHealth,
   Future<void> Function()? yieldFrame,
 }) async {
   const dt = 1 / 60;
@@ -187,14 +188,17 @@ Future<BalanceResult> runBalanceEpisode(
   }
   game.restartGame();
   final config = game.configuration!;
-  if (experimentalExposureSeconds != null) {
+  if (experimentalExposureSeconds != null || experimentalBossHealth != null) {
     // Explicit pre-run rule experiment, never a mid-run shield opening.
     final world = game.currentWorld;
     game.boss.configure(
       pattern: game.boss.pattern,
-      maxHealth: world.bossHealth,
+      maxHealth:
+          experimentalBossHealth ?? world.selectBossHealth(config.difficulty),
       shieldHits: config.difficulty.shieldHits + world.shieldBonus,
-      exposureSeconds: experimentalExposureSeconds,
+      exposureSeconds:
+          experimentalExposureSeconds ??
+          config.difficulty.exposureSeconds * world.exposureScale,
       attackInterval: config.difficulty.attackInterval * world.attackScale,
     );
   }
@@ -403,6 +407,8 @@ Future<BalanceResult> runBalanceEpisode(
       'seed': seed,
       'limitSeconds': maxSeconds,
       'experimentalExposureSeconds': experimentalExposureSeconds,
+      'experimentalBossHealth': experimentalBossHealth,
+      'bossMaxHealth': game.boss.maxHealth,
       'target': config.stage.target,
       'outcome': outcome,
       'seconds': frame * dt,
