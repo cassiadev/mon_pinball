@@ -12,6 +12,11 @@ import 'pinball_style.dart';
 import 'moonlit_table.dart';
 import 'boss_encounter.dart';
 import 'moonlit_boss.dart';
+import 'pinball_progress.dart';
+import 'journey_table.dart';
+import 'journey_boss.dart';
+import 'world_obstacles.dart';
+import 'world_devices.dart';
 
 class PinballSnapshot {
   const PinballSnapshot({
@@ -38,8 +43,9 @@ class PinballSnapshot {
 }
 
 class MonPinballGame extends Forge2DGame with KeyboardEvents {
-  MonPinballGame()
-    : hud = ValueNotifier<PinballSnapshot>(
+  MonPinballGame({RunConfiguration? configuration, this.progress})
+    : _configuration = configuration,
+      hud = ValueNotifier<PinballSnapshot>(
         const PinballSnapshot(
           score: 0,
           lives: _initialLives,
@@ -48,7 +54,13 @@ class MonPinballGame extends Forge2DGame with KeyboardEvents {
           gameOver: false,
         ),
       ),
-      super(gravity: Vector2(0, 36), zoom: 12);
+      super(gravity: Vector2(0, 36), zoom: 12) {
+    if (configuration != null) {
+      _lives = configuration.difficulty.balls;
+      _status = '오른쪽 발사대를 아래로 당기세요';
+      _configureEncounter();
+    }
+  }
 
   static const double boardWidth = 28;
   static const double boardHeight = 56;
@@ -106,6 +118,178 @@ class MonPinballGame extends Forge2DGame with KeyboardEvents {
 
   final ValueNotifier<PinballSnapshot> hud;
   final BossEncounter boss = BossEncounter();
+  RunConfiguration? _configuration;
+  final PinballProgress? progress;
+
+  RunConfiguration? get configuration => _configuration;
+  PinballWorld get currentWorld => _configuration?.mode == PinballMode.stage
+      ? _configuration!.stage.world
+      : _configuration?.world ?? PinballWorld.garden;
+  int get arcadeBossesDefeated => _arcadeBossesDefeated;
+  int get bestCombo => _bestCombo;
+  int get inputEpoch => _inputEpoch;
+  bool get stageCleared => _stageCleared;
+  int get stageStars => _stageStars;
+  double get ballSaveRemaining => _ballSaveRemaining;
+  bool get isGateMission =>
+      configuration?.mode == PinballMode.stage &&
+      (configuration!.stage.goal == StageGoal.bloom ||
+          configuration!.stage.goal == StageGoal.targets);
+  bool get gateArmed => _gateArmed;
+  bool get usesSecondaryWorldDevice =>
+      configuration != null &&
+      (configuration!.mode == PinballMode.arcade ||
+          configuration!.stageIndex % 3 != 0);
+  String get worldDeviceHint => switch (currentWorld) {
+    PinballWorld.garden =>
+      usesSecondaryWorldDevice
+          ? '꽃잎은 공에 밀려 젖혀지고, 수련은 내려오는 공을 받아 위로 쏩니다.'
+          : '꽃잎은 공에 밀려 젖혀졌다가 돌아옵니다. 통과할 각도를 노리세요.',
+    PinballWorld.neon =>
+      usesSecondaryWorldDevice
+          ? '회전 전극의 틈을 노리세요. 가속 레일은 화살표 방향으로 진입하면 작동합니다.'
+          : '중앙 전극이 계속 회전합니다. 팔 사이의 빈틈을 노리세요.',
+    PinballWorld.abyss =>
+      usesSecondaryWorldDevice
+          ? '수문 사이로 공을 보내세요. 중앙 물살은 3초마다 방향이 바뀝니다.'
+          : '수문이 좌우로 왕복합니다. 열린 중앙 길과 바깥 통로를 활용하세요.',
+  };
+  bool isMissionHitLit(String id) => _missionHits.contains(id);
+
+  Vector2 findMissionHitPosition(String id) => switch (id) {
+    'jewel-left' => switch (currentWorld) {
+      PinballWorld.garden => Vector2(9.6, 13.7),
+      PinballWorld.neon => Vector2(8.6, 13.6),
+      PinballWorld.abyss => Vector2(8.2, 15),
+    },
+    'jewel-right' => switch (currentWorld) {
+      PinballWorld.garden => Vector2(18.4, 13.7),
+      PinballWorld.neon => Vector2(19.2, 15.6),
+      PinballWorld.abyss => Vector2(19.8, 15),
+    },
+    'jewel-center' => switch (currentWorld) {
+      PinballWorld.garden => Vector2(14, 18.1),
+      PinballWorld.neon => Vector2(14, 20.5),
+      PinballWorld.abyss => Vector2(14, 22.2),
+    },
+    'target-0' => Vector2(5.25, 39.3),
+    'target-1' => Vector2(9.9, 40.85),
+    'target-2' => Vector2(18.1, 40.85),
+    'target-3' => Vector2(22.75, 39.3),
+    _ => throw ArgumentError.value(id, 'id', 'Unknown mission hit'),
+  };
+
+  double get missionProgress {
+    final config = configuration;
+    if (config == null) return 0;
+    if (_stageCleared) return 1;
+    if (config.mode == PinballMode.arcade ||
+        config.stage.goal == StageGoal.boss) {
+      return 1 - boss.health / boss.maxHealth;
+    }
+    return switch (config.stage.goal) {
+      StageGoal.score => (_score / config.stage.target).clamp(0.0, 1.0),
+      StageGoal.combo => (_combo / config.stage.target).clamp(0.0, 1.0),
+      _ => (_missionHits.length / config.stage.target).clamp(0.0, 1.0),
+    };
+  }
+
+  String get missionDescription {
+    final config = configuration;
+    if (config == null) return '';
+    if (config.mode == PinballMode.arcade ||
+        config.stage.goal == StageGoal.boss) {
+      if (boss.defeated) return '보스 격파! +50,000점 · 다음 소환 준비';
+      if (boss.shieldState == BossShieldState.exposed) {
+        return '약점 노출 ${boss.exposureRemaining.toStringAsFixed(1)}초 · 상단 보스를 노리세요';
+      }
+      if (boss.sealsLeftLane && boss.sealsRightLane) {
+        return '양쪽 레인 봉쇄 · 중앙 경로와 타깃을 노리세요';
+      }
+      if (boss.sealsRightLane) return '오른쪽 레인 봉쇄 · 왼쪽 경로와 타깃을 노리세요';
+      if (boss.sealsLeftLane) return '왼쪽 레인 봉쇄 · 오른쪽 경로와 타깃을 노리세요';
+      return '좌우 보석·하단 타깃 ${boss.shieldCharge}/${boss.requiredShieldHits} · 방어막을 여세요';
+    }
+    return switch (config.stage.goal) {
+      StageGoal.score => '$_score / ${config.stage.target}점 · 10콤보마다 +10,000점',
+      StageGoal.combo => '$_combo / ${config.stage.target}콤보 · 공을 잃으면 초기화',
+      StageGoal.bloom =>
+        _gateArmed
+            ? 'Lunar Bloom! · 빛나는 상단 게이트를 통과하세요'
+            : '서로 다른 위쪽 보석 ${_missionHits.length}/3 충전',
+      StageGoal.targets =>
+        _gateArmed
+            ? '봉인 해제! · 빛나는 상단 게이트를 통과하세요'
+            : '서로 다른 하단 타깃 ${_missionHits.length}/4 해제',
+      _ => config.stage.hint,
+    };
+  }
+
+  bool _stageCleared = false;
+  int _stageStars = 0;
+  double _ballSaveRemaining = 0;
+  int _arcadeBossesDefeated = 0;
+  int _bestCombo = 0;
+  int _inputEpoch = 0;
+  final _missionHits = <String>{};
+  bool _gateArmed = false;
+  bool _pendingStageClear = false;
+  bool _saveAvailable = true;
+  double _hudElapsed = 0;
+  double _nudgeCooldown = 0;
+
+  bool get _bossEnabled =>
+      configuration == null ||
+      configuration!.mode == PinballMode.arcade ||
+      configuration!.stage.goal == StageGoal.boss;
+  bool get _canPlay =>
+      !_gameOver && !_stageCleared && (configuration != null || !boss.defeated);
+
+  void _configureEncounter() {
+    final difficulty = configuration!.difficulty;
+    final world = currentWorld;
+    boss.configure(
+      pattern: switch (world) {
+        PinballWorld.garden => BossPattern.garden,
+        PinballWorld.neon => BossPattern.neon,
+        PinballWorld.abyss => BossPattern.abyss,
+      },
+      maxHealth: world.selectBossHealth(difficulty),
+      shieldHits: difficulty.shieldHits + world.shieldBonus,
+      exposureSeconds: difficulty.exposureSeconds * world.exposureScale,
+      attackInterval: difficulty.attackInterval * world.attackScale,
+    );
+    boss.visible = _bossEnabled;
+  }
+
+  void advanceStage() {
+    final config = configuration;
+    if (config == null ||
+        config.mode != PinballMode.stage ||
+        !_stageCleared ||
+        config.stageIndex >= pinballStages.length - 1) {
+      return;
+    }
+    _configuration = RunConfiguration(
+      difficulty: config.difficulty,
+      stageIndex: config.stageIndex + 1,
+    );
+    restartGame();
+  }
+
+  /// Cancels held controls on pause or navigation without launching the ball.
+  void cancelAllInput() {
+    _inputEpoch++;
+    _isChargingLauncher = false;
+    _keyboardLauncherDown = false;
+    _launchCharge = 0;
+    if (!isLoaded) return;
+    setLeftFlipper(false);
+    setRightFlipper(false);
+    _launcherView.charge = 0;
+    _showCharge();
+    _emitHud();
+  }
 
   @visibleForTesting
   bool get isLeftFlipperPressed =>
@@ -130,6 +314,10 @@ class MonPinballGame extends Forge2DGame with KeyboardEvents {
   String _status = 'Drag right plunger';
   BossDamagePopup? _damagePopup;
   final _scorePulses = <PulseRing>{};
+  EncounterLaneGate? _rightEncounterGate;
+  GardenLotusScoop? _lotusScoop;
+  NeonBoostRail? _boostRail;
+  AbyssCurrent? _abyssCurrent;
 
   // The Flutter garden backdrop shows around the board.
   @override
@@ -145,15 +333,48 @@ class MonPinballGame extends Forge2DGame with KeyboardEvents {
     final art = await Future.wait([
       images.load('moonlit/garden.png'),
       Flame.images.load('moonlit/tsukibina-atlas.png'),
+      if (configuration != null) ...[
+        images.load('journey/neon-sentinel.png'),
+        images.load('journey/abyss-guardian.png'),
+      ],
     ]);
     world.add(MoonlitTable(art.first));
+    if (configuration != null) world.add(JourneyTable());
     world.add(TableTrim());
-    world.add(MoonlitBoss(boss));
+    world.add(
+      MoonlitBoss(
+        boss,
+        shouldRender: () =>
+            boss.visible &&
+            (configuration == null || currentWorld == PinballWorld.garden),
+      ),
+    );
     world.add(BossPetals(boss));
     world.add(BossWeakPoint(boss));
+    if (configuration != null) {
+      world.add(JourneyBoss());
+      world.add(JourneyObjectives());
+      world.add(EncounterLaneGate());
+      if (currentWorld != PinballWorld.garden) {
+        _rightEncounterGate = EncounterLaneGate(right: true);
+        world.add(_rightEncounterGate!);
+      }
+    }
     world.addAll(_buildWalls());
     world.addAll(_buildBumpers());
     world.addAll(_buildTargets());
+    if (configuration != null) {
+      world.addAll([
+        NeonElectrode(),
+        AbyssSluice(right: false),
+        AbyssSluice(right: true),
+        GardenPetalFlap(right: false),
+        GardenPetalFlap(right: true),
+        _lotusScoop = GardenLotusScoop(),
+        _boostRail = NeonBoostRail(),
+        _abyssCurrent = AbyssCurrent(),
+      ]);
+    }
 
     _leftFlipper = Flipper.left(Vector2(6.6, 52.3));
     _rightFlipper = Flipper.right(Vector2(21.4, 52.3));
@@ -179,15 +400,33 @@ class MonPinballGame extends Forge2DGame with KeyboardEvents {
 
   @override
   void update(double dt) {
+    if (!dt.isFinite || dt < 0) return;
+    if (configuration != null && dt > 1 / 60) {
+      // Forge2D caps travel at two board units per step. Short steps preserve
+      // launch energy on slow frames; cap catch-up after a long render stall.
+      final elapsed = math.min(dt, 0.25);
+      final steps = (elapsed * 60).ceil();
+      for (var step = 0; step < steps; step++) {
+        update(elapsed / steps);
+      }
+      return;
+    }
     final from =
         isLoaded && _ball.isMounted && _ball.body.bodyType == BodyType.dynamic
         ? _ball.position.clone()
         : null;
     boss.update(dt);
+    _ballSaveRemaining = math.max(0, _ballSaveRemaining - dt);
+    _nudgeCooldown = math.max(0, _nudgeCooldown - dt);
     super.update(dt);
+    if (configuration != null && _canPlay && _ball.isMounted) {
+      _lotusScoop?.updateBall(_ball, from, dt);
+      _boostRail?.updateBall(_ball, from, dt);
+      _abyssCurrent?.updateBall(_ball, from, dt);
+    }
     _scorePulses.removeWhere((pulse) => pulse.parent == null);
 
-    if (from != null && boss.active && !_gameOver) {
+    if (from != null && boss.active && _canPlay) {
       final damage = boss.takeHit(
         from,
         _ball.position,
@@ -211,24 +450,46 @@ class MonPinballGame extends Forge2DGame with KeyboardEvents {
         );
         world.add(_damagePopup!);
         if (boss.defeated) {
-          _isChargingLauncher = false;
-          _launchCharge = 0;
-          _launcherView.charge = 0;
-          _resetBall();
-          _status = '승리! 츠키비나 격파 · 다시 시작';
-          _emitHud();
+          if (configuration == null) {
+            cancelAllInput();
+            _resetBall();
+            _status = '승리! 츠키비나 격파 · 다시 시작';
+            _emitHud();
+          } else if (configuration!.mode == PinballMode.stage) {
+            _pendingStageClear = true;
+          } else {
+            _arcadeBossesDefeated++;
+            _score += 50000;
+            _status = '보스 격파! +50,000점';
+            _recordArcade();
+            _emitHud();
+          }
         }
       }
     }
 
-    if (_isChargingLauncher && !_gameOver) {
+    if (configuration?.mode == PinballMode.arcade &&
+        boss.vanished &&
+        _canPlay) {
+      boss.reset();
+      if (!_canLaunchBall) boss.start();
+    }
+
+    if (from != null &&
+        _gateArmed &&
+        _canPlay &&
+        _crossesGate(from, _ball.position)) {
+      _pendingStageClear = true;
+    }
+    if (_pendingStageClear) _completeStage();
+
+    if (_isChargingLauncher && _canPlay) {
       _launchCharge = (_launchCharge + dt * 0.8).clamp(0.0, 1.0);
       _showCharge();
       _emitHud();
     }
 
-    if (!_gameOver &&
-        !boss.defeated &&
+    if (_canPlay &&
         _ball.isMounted &&
         _ball.body.bodyType == BodyType.dynamic) {
       if (_ball.position.y > boardHeight + 4) {
@@ -237,6 +498,56 @@ class MonPinballGame extends Forge2DGame with KeyboardEvents {
         _rearmBall();
       }
     }
+    if (configuration != null) {
+      _hudElapsed += dt;
+      if (_hudElapsed >= 0.1) {
+        _hudElapsed = 0;
+        _emitHud();
+      }
+    }
+  }
+
+  bool _crossesGate(Vector2 from, Vector2 to) {
+    final center = Vector2(14, 4);
+    final delta = to - from;
+    final fraction = delta.length2 == 0
+        ? 0.0
+        : ((center - from).dot(delta) / delta.length2).clamp(0.0, 1.0);
+    return (from + delta * fraction).distanceTo(center) <=
+        2.1 + PinballBall.radius;
+  }
+
+  void _completeStage() {
+    _pendingStageClear = false;
+    if (_stageCleared || configuration?.mode != PinballMode.stage) return;
+    _stageCleared = true;
+    final lostBalls = configuration!.difficulty.balls - _lives;
+    _stageStars = lostBalls == 0
+        ? 3
+        : lostBalls == 1
+        ? 2
+        : 1;
+    boss.pause();
+    cancelAllInput();
+    _resetBall();
+    _status = '스테이지 클리어 · 별 $_stageStars개';
+    progress?.recordStageClear(
+      stageIndex: configuration!.stageIndex,
+      difficulty: configuration!.difficulty,
+      stars: _stageStars,
+      score: _score,
+    );
+    _emitHud();
+  }
+
+  void _recordArcade() {
+    if (configuration?.mode != PinballMode.arcade) return;
+    progress?.recordArcade(
+      world: currentWorld,
+      difficulty: configuration!.difficulty,
+      score: _score,
+      combo: _bestCombo,
+    );
   }
 
   /// A ball that rolls back down the lane settles on the plunger face.
@@ -250,6 +561,7 @@ class MonPinballGame extends Forge2DGame with KeyboardEvents {
     KeyEvent event,
     Set<LogicalKeyboardKey> keysPressed,
   ) {
+    if (configuration != null && paused) return KeyEventResult.ignored;
     final leftPressed =
         keysPressed.contains(LogicalKeyboardKey.arrowLeft) ||
         keysPressed.contains(LogicalKeyboardKey.keyA);
@@ -318,10 +630,13 @@ class MonPinballGame extends Forge2DGame with KeyboardEvents {
   }
 
   bool get _canLaunchBall =>
-      _ball.isMounted && _ball.body.bodyType == BodyType.static;
+      _ball.isMounted &&
+      _ball.body.bodyType == BodyType.static &&
+      _lotusScoop?.isHolding != true;
 
   void startLauncherCharge({bool timed = true}) {
-    if (_gameOver || boss.defeated) {
+    if (_stageCleared) return;
+    if (_gameOver || configuration == null && boss.defeated) {
       restartGame();
       if (!timed) {
         return;
@@ -331,12 +646,13 @@ class MonPinballGame extends Forge2DGame with KeyboardEvents {
       return;
     }
     _isChargingLauncher = timed;
-    _status = 'Charging launcher';
+    _status = configuration == null ? 'Charging launcher' : '발사대 충전 중';
     _emitHud();
   }
 
   void setLauncherDragCharge(double charge) {
-    if (_gameOver || boss.defeated) {
+    if (_stageCleared || !charge.isFinite) return;
+    if (_gameOver || configuration == null && boss.defeated) {
       restartGame();
     }
     if (!_canLaunchBall) {
@@ -345,12 +661,15 @@ class MonPinballGame extends Forge2DGame with KeyboardEvents {
     _isChargingLauncher = false;
     _launchCharge = charge.clamp(0.0, 1.0);
     _showCharge();
-    _status = _launchCharge <= 0 ? 'Pull plunger down' : 'Release to launch';
+    _status = configuration == null
+        ? (_launchCharge <= 0 ? 'Pull plunger down' : 'Release to launch')
+        : (_launchCharge <= 0 ? '발사대를 아래로 당기세요' : '손을 떼면 발사');
     _emitHud();
   }
 
   void releaseLauncher() {
-    if (_gameOver || boss.defeated) {
+    if (_stageCleared) return;
+    if (_gameOver || configuration == null && boss.defeated) {
       restartGame();
       return;
     }
@@ -366,32 +685,89 @@ class MonPinballGame extends Forge2DGame with KeyboardEvents {
     // The head snaps back to the lane floor and strikes the ball from there.
     _ball.body.setTransform(launchPosition, 0);
     _ball.launch(power);
-    boss.start();
-    _status = 'Launched';
+    if (_bossEnabled) boss.start();
+    if (configuration != null && _saveAvailable) {
+      _ballSaveRemaining = configuration!.difficulty.ballSaveSeconds;
+      _saveAvailable = false;
+    }
+    _status = configuration == null ? 'Launched' : '발사!';
     _emitHud();
   }
 
   void nudge() {
-    if (_gameOver || boss.defeated || !_ball.isMounted) {
+    if (!_canPlay ||
+        !_ball.isMounted ||
+        configuration != null && (_canLaunchBall || _nudgeCooldown > 0)) {
       return;
     }
     _ball.body.applyLinearImpulse(Vector2(0, -10));
-    _status = 'Table nudge';
+    _nudgeCooldown = 1;
+    _status = configuration == null ? 'Table nudge' : '테이블 밀기';
     _emitHud();
   }
 
-  void addScore(int points, Vector2 at, Color color, String reason) {
-    if (_gameOver || boss.defeated) {
+  void addScore(
+    int points,
+    Vector2 at,
+    Color color,
+    String reason, {
+    String? hitId,
+  }) {
+    if (!_canPlay || _pendingStageClear || points <= 0) {
       return;
     }
-    _awardScore(points, at, color, reason);
+    _awardScore(
+      configuration == null ? points : points * 20,
+      at,
+      color,
+      reason,
+    );
+    if (configuration == null) return;
+    if (hitId != null) {
+      if (_bossEnabled &&
+          (hitId == 'jewel-left' ||
+              hitId == 'jewel-right' ||
+              hitId.startsWith('target-'))) {
+        boss.chargeShield();
+      }
+      if (configuration!.mode == PinballMode.stage) {
+        final goal = configuration!.stage.goal;
+        if (goal == StageGoal.bloom && hitId.startsWith('jewel-') ||
+            goal == StageGoal.targets && hitId.startsWith('target-')) {
+          _missionHits.add(hitId);
+          _gateArmed = _missionHits.length >= configuration!.stage.target;
+        }
+      }
+    }
+    if (configuration!.mode == PinballMode.stage) {
+      final stage = configuration!.stage;
+      if (stage.goal == StageGoal.score && _score >= stage.target ||
+          stage.goal == StageGoal.combo && _combo >= stage.target) {
+        _pendingStageClear = true;
+      }
+    }
+    _emitHud();
   }
 
   void _awardScore(int points, Vector2 at, Color color, String reason) {
     _score += points;
     // Every scoring hit counts toward the current ball's combo.
     _combo += 1;
-    _status = '+$points $reason';
+    _bestCombo = math.max(_bestCombo, _combo);
+    final label = configuration == null
+        ? reason
+        : switch (reason) {
+            'bumper' => '범퍼',
+            'spinner' => '회전 타깃',
+            'target' => '하단 타깃',
+            'slingshot' => '반발대',
+            _ => reason,
+          };
+    _status = '+$points $label';
+    if (configuration != null && _combo % 10 == 0) {
+      _score += 10000;
+      _status = '$_combo콤보! +10,000점';
+    }
     final pulse = PulseRing(position: at.clone(), color: color);
     _scorePulses.add(pulse);
     world.add(pulse);
@@ -399,18 +775,68 @@ class MonPinballGame extends Forge2DGame with KeyboardEvents {
   }
 
   void restartGame() {
+    if (!isLoaded) return;
+    cancelAllInput();
     boss.reset();
+    if (configuration != null) _configureEncounter();
     _clearCombatEffects();
     _score = 0;
     _combo = 0;
-    _lives = _initialLives;
+    _lives = configuration?.difficulty.balls ?? _initialLives;
     _gameOver = false;
-    _status = 'Drag right plunger';
+    _status = configuration == null
+        ? 'Drag right plunger'
+        : '오른쪽 발사대를 아래로 당기세요';
     _launchCharge = 0;
     _isChargingLauncher = false;
+    _keyboardLauncherDown = false;
+    _stageCleared = false;
+    _stageStars = 0;
+    _pendingStageClear = false;
+    _missionHits.clear();
+    _gateArmed = false;
+    _bestCombo = 0;
+    _arcadeBossesDefeated = 0;
+    _ballSaveRemaining = 0;
+    _saveAvailable = true;
+    _nudgeCooldown = 0;
+    setLeftFlipper(false);
+    setRightFlipper(false);
     _launcherView.charge = 0;
     _resetBall();
+    _selectWorldLayout();
     _emitHud();
+  }
+
+  // World changes happen after a clear, while the ball waits on the plunger.
+  void _selectWorldLayout() {
+    for (final bumper in world.children.whereType<Bumper>()) {
+      bumper.selectWorld();
+    }
+    for (final spinner in world.children.whereType<Spinner>()) {
+      spinner.body.setActive(configuration == null);
+    }
+    for (final flap in world.children.whereType<GardenPetalFlap>()) {
+      flap.selectLayout();
+    }
+    _lotusScoop?.selectLayout();
+    _boostRail?.selectLayout();
+    _abyssCurrent?.selectLayout();
+    for (final electrode in world.children.whereType<NeonElectrode>()) {
+      electrode.selectWorld();
+    }
+    for (final sluice in world.children.whereType<AbyssSluice>()) {
+      sluice.selectWorld();
+    }
+    for (final gate in world.children.whereType<EncounterLaneGate>()) {
+      gate.selectWorld();
+    }
+    if (configuration != null &&
+        currentWorld != PinballWorld.garden &&
+        _rightEncounterGate == null) {
+      _rightEncounterGate = EncounterLaneGate(right: true);
+      world.add(_rightEncounterGate!);
+    }
   }
 
   List<Component> _buildWalls() {
@@ -444,19 +870,22 @@ class MonPinballGame extends Forge2DGame with KeyboardEvents {
       // Tight gaps between the upper jewels keep the ball rattling under the
       // boss; each gap still passes a ball.
       Bumper(
-        bumperCenter: Vector2(9.6, 13.7),
+        missionId: 'jewel-left',
+        bumperCenter: findMissionHitPosition('jewel-left'),
         radius: 2.2,
         points: 250,
         color: PinballStyle.yellow,
       ),
       Bumper(
-        bumperCenter: Vector2(18.4, 13.7),
+        missionId: 'jewel-right',
+        bumperCenter: findMissionHitPosition('jewel-right'),
         radius: 2.2,
         points: 250,
         color: PinballStyle.red,
       ),
       Bumper(
-        bumperCenter: Vector2(MoonlitTable.centerX, 18.1),
+        missionId: 'jewel-center',
+        bumperCenter: findMissionHitPosition('jewel-center'),
         radius: 2.2,
         points: 400,
         color: PinballStyle.cyan,
@@ -499,11 +928,27 @@ class MonPinballGame extends Forge2DGame with KeyboardEvents {
     return [
       // Paired targets leave a full ball width between them; a narrower gap
       // lets the ball balance on both corners.
-      DropTarget(targetCenter: Vector2(5.25, 39.3), targetAngle: 0.42),
-      DropTarget(targetCenter: Vector2(9.9, 40.85), targetAngle: 0.25),
-      DropTarget(targetCenter: Vector2(18.1, 40.85), targetAngle: -0.25),
+      DropTarget(
+        targetCenter: Vector2(5.25, 39.3),
+        targetAngle: 0.42,
+        missionId: 'target-0',
+      ),
+      DropTarget(
+        targetCenter: Vector2(9.9, 40.85),
+        targetAngle: 0.25,
+        missionId: 'target-1',
+      ),
+      DropTarget(
+        targetCenter: Vector2(18.1, 40.85),
+        targetAngle: -0.25,
+        missionId: 'target-2',
+      ),
       // Its upper corner passes the centre of a ball resting on the wall.
-      DropTarget(targetCenter: Vector2(22.75, 39.3), targetAngle: -0.42),
+      DropTarget(
+        targetCenter: Vector2(22.75, 39.3),
+        targetAngle: -0.42,
+        missionId: 'target-3',
+      ),
     ];
   }
 
@@ -511,13 +956,27 @@ class MonPinballGame extends Forge2DGame with KeyboardEvents {
     boss.pause();
     _clearCombatEffects();
     _combo = 0;
+    cancelAllInput();
+    if (configuration != null && _ballSaveRemaining > 0) {
+      _ballSaveRemaining = 0;
+      _status = '볼 세이브! · 공을 다시 발사하세요';
+      _resetBall();
+      _emitHud();
+      return;
+    }
+    _saveAvailable = true;
     _lives -= 1;
     if (_lives <= 0) {
       _gameOver = true;
-      _status = 'Game over - tap launch or R';
+      _recordArcade();
+      _status = configuration == null
+          ? 'Game over - tap launch or R'
+          : '공을 모두 사용했습니다';
       _resetBall();
     } else {
-      _status = 'Ball drained - $_lives left';
+      _status = configuration == null
+          ? 'Ball drained - $_lives left'
+          : '공 $_lives개 남음 · 다시 발사하세요';
       _resetBall();
     }
     _emitHud();
@@ -526,7 +985,9 @@ class MonPinballGame extends Forge2DGame with KeyboardEvents {
   void _rearmBall() {
     boss.pause();
     _resetBall();
-    _status = 'Ball returned - drag plunger';
+    _status = configuration == null
+        ? 'Ball returned - drag plunger'
+        : '발사대로 돌아왔습니다 · 다시 발사하세요';
     _emitHud();
   }
 
@@ -551,6 +1012,8 @@ class MonPinballGame extends Forge2DGame with KeyboardEvents {
   }
 
   void _resetBall() {
+    _lotusScoop?.resetBallState();
+    _boostRail?.resetBallState();
     if (!_ball.isMounted) {
       return;
     }
@@ -578,6 +1041,93 @@ class MonPinballGame extends Forge2DGame with KeyboardEvents {
   }
 }
 
+/// Boss side barriers leave a wide center route and the launcher unobstructed.
+class EncounterLaneGate extends BodyComponent<MonPinballGame> {
+  EncounterLaneGate({this.right = false})
+    : super(priority: 45, renderBody: false);
+
+  final bool right;
+  late final Fixture _fixture;
+  bool _closed = false;
+
+  Vector2 get _center => Vector2(
+    right ? 21.3 : 4.9,
+    game.currentWorld == PinballWorld.abyss ? 33.5 : 27.3,
+  );
+
+  @override
+  Body createBody() {
+    final body = world.createBody(BodyDef(position: _center));
+    _fixture = body.createFixture(
+      FixtureDef(
+        PolygonShape()..setAsBoxXY(3, 0.12),
+        isSensor: true,
+        restitution: 0.9,
+      ),
+    );
+    return body;
+  }
+
+  void selectWorld() {
+    _closed = false;
+    _fixture.setSensor(true);
+    body.setTransform(_center, 0);
+    body.setActive(!right || game.currentWorld != PinballWorld.garden);
+  }
+
+  @override
+  void update(double dt) {
+    super.update(dt);
+    final closed =
+        game.boss.visible &&
+        (right ? game.boss.sealsRightLane : game.boss.sealsLeftLane) &&
+        game._canPlay;
+    if (closed != _closed) {
+      _closed = closed;
+      _fixture.setSensor(!closed);
+    }
+  }
+
+  @override
+  void render(Canvas canvas) {
+    final warning =
+        game.boss.visible &&
+        game._canPlay &&
+        (right ? game.boss.warnsRightLane : game.boss.warnsLeftLane);
+    if (!_closed && !warning) return;
+    if (warning) {
+      final color = PinballStyle.yellow.withValues(
+        alpha: 0.3 + game.boss.attackWarningProgress * 0.6,
+      );
+      for (var x = -3.0; x < 3; x += 0.65) {
+        canvas.drawLine(
+          Offset(x, 0),
+          Offset(x + 0.35, 0),
+          Paint()
+            ..color = color
+            ..strokeWidth = 0.16,
+        );
+      }
+      return;
+    }
+    canvas.drawLine(
+      const Offset(-3, 0),
+      const Offset(3, 0),
+      Paint()
+        ..color = PinballStyle.red
+        ..strokeWidth = 0.24
+        ..strokeCap = StrokeCap.round,
+    );
+    canvas.drawLine(
+      const Offset(-3, 0),
+      const Offset(3, 0),
+      Paint()
+        ..color = Colors.white
+        ..strokeWidth = 0.055,
+    );
+  }
+}
+
 /// The outline shares the exact center and radius used by the hit sensor.
 class BossWeakPoint extends Component {
   BossWeakPoint(this.boss) : super(priority: 40);
@@ -586,8 +1136,23 @@ class BossWeakPoint extends Component {
 
   @override
   void render(Canvas canvas) {
-    if (boss.defeated) return;
+    if (!boss.visible || boss.defeated) return;
     final center = boss.position.toOffset();
+    if (boss.usesShield && boss.shieldState != BossShieldState.exposed) {
+      canvas.drawOval(
+        Rect.fromCenter(
+          center: center - const Offset(0, 0.6),
+          width: 6.6,
+          height: 10.5,
+        ),
+        Paint()
+          ..color = (boss.laneSealed ? PinballStyle.red : PinballStyle.cyan)
+              .withValues(alpha: 0.65)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 0.1,
+      );
+      return;
+    }
     canvas.drawCircle(
       center,
       boss.weakPointRadius,
@@ -767,6 +1332,10 @@ class Slingshot extends BodyComponent<MonPinballGame> with ContactCallbacks {
 
   @override
   void render(Canvas canvas) {
+    if (game.currentWorld != PinballWorld.garden) {
+      drawWorldSlingshot(canvas, game.currentWorld, vertices, _flash);
+      return;
+    }
     final points = vertices.map((v) => v.toOffset()).toList();
     final center = _center.toOffset();
     final path = Path()..addPolygon(points, true);
@@ -813,18 +1382,27 @@ enum BumperStyle { jewel, post, moon }
 class Bumper extends BodyComponent<MonPinballGame> with ContactCallbacks {
   Bumper({
     required this.bumperCenter,
-    required this.radius,
+    required double radius,
     required this.points,
     required this.color,
     this.style = BumperStyle.jewel,
     this.kick = 22,
-  }) : super(priority: 5, renderBody: false);
+    this.missionId,
+  }) : _baseRadius = radius,
+       super(priority: 5, renderBody: false);
 
   final Vector2 bumperCenter;
-  final double radius;
+  final double _baseRadius;
+  double get radius =>
+      game.configuration != null &&
+          game.currentWorld == PinballWorld.abyss &&
+          style == BumperStyle.moon
+      ? 2
+      : _baseRadius;
   final int points;
   final Color color;
   final BumperStyle style;
+  final String? missionId;
 
   /// Impulse added on contact, on top of the bouncy restitution.
   final double kick;
@@ -833,14 +1411,64 @@ class Bumper extends BodyComponent<MonPinballGame> with ContactCallbacks {
 
   @override
   Body createBody() {
-    final shape = CircleShape()..radius = radius;
+    _selectCenter();
     final body = world.createBody(
-      BodyDef(position: bumperCenter, userData: this),
+      BodyDef(
+        position: bumperCenter,
+        userData: this,
+        active:
+            !(game.currentWorld == PinballWorld.abyss &&
+                style == BumperStyle.post),
+      ),
     );
-    body.createFixture(
-      FixtureDef(shape, userData: this, friction: 0.02, restitution: 1.55),
-    );
+    _createFixture(body);
     return body;
+  }
+
+  void _createFixture(Body body) {
+    body.createFixture(
+      FixtureDef(
+        CircleShape()..radius = radius,
+        userData: this,
+        friction: 0.02,
+        restitution: 1.55,
+      ),
+    );
+  }
+
+  void _selectCenter() {
+    if (missionId != null) {
+      bumperCenter.setFrom(game.findMissionHitPosition(missionId!));
+    } else if (style == BumperStyle.post) {
+      final left = bumperCenter.x < MonPinballGame.boardWidth / 2;
+      bumperCenter.x = game.currentWorld == PinballWorld.neon
+          ? (left ? 9 : 19)
+          : (left ? 9.8 : 18.2);
+    } else if (style == BumperStyle.moon) {
+      // Leave the abyss's advertised center route open. The smaller radius
+      // also keeps a full-ball gap above its mandatory lower-left target.
+      bumperCenter.setValues(
+        game.configuration != null && game.currentWorld == PinballWorld.abyss
+            ? 10.5
+            : MoonlitTable.moonCenter.dx,
+        MoonlitTable.moonCenter.dy,
+      );
+    }
+  }
+
+  void selectWorld() {
+    _selectCenter();
+    body.setActive(
+      !(game.currentWorld == PinballWorld.abyss && style == BumperStyle.post),
+    );
+    body.setTransform(bumperCenter, 0);
+    final fixture = body.fixtures.single;
+    if ((fixture.shape as CircleShape).radius != radius) {
+      body.destroyFixture(fixture);
+      _createFixture(body);
+    }
+    _flash = 0;
+    _cooldown = 0;
   }
 
   @override
@@ -853,7 +1481,7 @@ class Bumper extends BodyComponent<MonPinballGame> with ContactCallbacks {
         push.normalize();
         other.body.applyLinearImpulse(push..scale(kick));
       }
-      game.addScore(points, position, color, 'bumper');
+      game.addScore(points, position, color, 'bumper', hitId: missionId);
     }
   }
 
@@ -865,11 +1493,21 @@ class Bumper extends BodyComponent<MonPinballGame> with ContactCallbacks {
   }
 
   @override
-  void render(Canvas canvas) => switch (style) {
-    BumperStyle.jewel => drawJewelBumper(canvas, radius, color, _flash),
-    BumperStyle.post => drawGoldPost(canvas, radius, color, _flash),
-    BumperStyle.moon => drawMoonBumper(canvas, radius, _flash),
-  };
+  void render(Canvas canvas) {
+    if (!body.isActive) return;
+    if (game.currentWorld != PinballWorld.garden) {
+      drawWorldBumper(canvas, game.currentWorld, style, radius, _flash);
+      return;
+    }
+    switch (style) {
+      case BumperStyle.jewel:
+        drawJewelBumper(canvas, radius, color, _flash);
+      case BumperStyle.post:
+        drawGoldPost(canvas, radius, color, _flash);
+      case BumperStyle.moon:
+        drawMoonBumper(canvas, radius, _flash);
+    }
+  }
 }
 
 /// A pivoting bar beside the moon: hits spin it once and score.
@@ -896,7 +1534,11 @@ class Spinner extends BodyComponent<MonPinballGame> with ContactCallbacks {
     final shape = PolygonShape()
       ..setAsBox(halfLength, halfThickness, Vector2.zero(), barAngle);
     final body = world.createBody(
-      BodyDef(position: spinnerCenter, userData: this),
+      BodyDef(
+        position: spinnerCenter,
+        userData: this,
+        active: game.configuration == null,
+      ),
     );
     body.createFixture(
       FixtureDef(shape, userData: this, friction: 0.05, restitution: 1.1),
@@ -922,6 +1564,7 @@ class Spinner extends BodyComponent<MonPinballGame> with ContactCallbacks {
 
   @override
   void render(Canvas canvas) {
+    if (!body.isActive) return;
     canvas.save();
     canvas.rotate(barAngle + _spin * math.pi * 2);
     const bounds = Rect.fromLTRB(
@@ -967,14 +1610,18 @@ class Spinner extends BodyComponent<MonPinballGame> with ContactCallbacks {
 }
 
 class DropTarget extends BodyComponent<MonPinballGame> with ContactCallbacks {
-  DropTarget({required this.targetCenter, required this.targetAngle})
-    : super(priority: 4, renderBody: false);
+  DropTarget({
+    required this.targetCenter,
+    required this.targetAngle,
+    this.missionId,
+  }) : super(priority: 4, renderBody: false);
 
   static const double halfLength = 1.5;
   static const double halfHeight = 0.55;
 
   final Vector2 targetCenter;
   final double targetAngle;
+  final String? missionId;
   double _flash = 0;
   double _cooldown = 0;
 
@@ -995,7 +1642,13 @@ class DropTarget extends BodyComponent<MonPinballGame> with ContactCallbacks {
     if (other is PinballBall && _cooldown <= 0) {
       _flash = 1;
       _cooldown = 0.2;
-      game.addScore(125, position, PinballStyle.red, 'target');
+      game.addScore(
+        125,
+        position,
+        PinballStyle.red,
+        'target',
+        hitId: missionId,
+      );
     }
   }
 
@@ -1014,6 +1667,10 @@ class DropTarget extends BodyComponent<MonPinballGame> with ContactCallbacks {
       halfLength,
       halfHeight,
     );
+    if (game.currentWorld != PinballWorld.garden) {
+      drawWorldTarget(canvas, game.currentWorld, bounds, _flash);
+      return;
+    }
     canvas.drawRRect(
       RRect.fromRectAndRadius(
         bounds.shift(const Offset(0, 0.14)),

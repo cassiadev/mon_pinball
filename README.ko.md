@@ -1,5 +1,8 @@
 # Mon Pinball
 
+> 하이브리드 핀볼 PoC가 추가되었습니다. 스테이지 9개, 월드별 아케이드, 난이도·기록 저장의 동작은 [PoC 가이드](docs/hybrid-pinball-poc.md)를 참고하세요.
+
+
 [English](README.md) | [한국어](README.ko.md)
 
 Flutter, Flame, Forge2D로 만든 작은 핀볼 게임입니다. Flutter는 앱의 기본 화면,
